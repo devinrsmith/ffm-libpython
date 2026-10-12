@@ -1,0 +1,22 @@
+# jextract argument file: the C symbols to generate bindings for.
+#
+# To find more, dump everything a header exposes and copy the lines you need:
+#   jextract -I <python include dir> --dump-includes all.symbols '<Python.h>'
+#
+# Function-like macros are not extracted: e.g. PyRun_SimpleString(s) is a macro
+# for PyRun_SimpleStringFlags(s, NULL), so bind the latter.
+
+# <Python.h>
+--include-function Py_InitializeEx
+--include-function Py_IsInitialized
+--include-function Py_FinalizeEx
+--include-function PyRun_SimpleStringFlags
+
+# <dlfcn.h>
+--include-function dladdr
+--include-function dlopen
+--include-function dlerror
+--include-struct Dl_info
+--include-constant RTLD_NOW
+--include-constant RTLD_GLOBAL
+--include-constant RTLD_NOLOAD

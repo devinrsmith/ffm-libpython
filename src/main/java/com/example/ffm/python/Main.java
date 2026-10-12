@@ -1,0 +1,22 @@
+package com.example.ffm.python;
+
+/** Initializes CPython, runs a {@code print} statement, and finalizes it again. */
+public final class Main {
+
+    private Main() {}
+
+    static void main() {
+        System.out.println("Java: starting embedded Python");
+        // Flush Java's buffer before Python writes to the same file descriptor.
+        System.out.flush();
+
+        try (EmbeddedPython python = EmbeddedPython.start()) {
+            python.exec("""
+                    import sys
+                    print(f"Hello from Python {sys.version.split()[0]}, embedded in Java via FFM!")
+                    """);
+        }
+
+        System.out.println("Java: Python finalized");
+    }
+}
