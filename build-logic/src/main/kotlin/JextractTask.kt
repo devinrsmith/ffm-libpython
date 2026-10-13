@@ -75,14 +75,14 @@ abstract class JextractTask : DefaultTask() {
 
     @TaskAction
     fun generate() {
-        val outputDir = outputDirectory.get().asFile
-        // Start clean so symbols removed from the symbols file disappear from the output.
-        fileSystemOperations.delete { delete(outputDir) }
-        outputDir.mkdirs()
+        // Generate into a scratch directory first, so a failed (or crashed) jextract
+        // leaves the checked-in bindings untouched.
+        val stagingDir = temporaryDir.resolve("output")
+        fileSystemOperations.delete { delete(stagingDir) }
 
         execOperations.exec {
             executable(this@JextractTask.executable.get())
-            args("--output", outputDir.absolutePath)
+            args("--output", stagingDir.absolutePath)
             args("--target-package", targetPackage.get())
             headerClassName.orNull?.let { args("--header-class-name", it) }
             libraries.get().forEach { args("--library", it) }
@@ -91,6 +91,12 @@ abstract class JextractTask : DefaultTask() {
             includeDirs.get().forEach { args("--include-dir", it) }
             args("@" + symbolsFile.get().asFile.absolutePath)
             args(headers.get())
+        }
+
+        // Sync rather than copy, so bindings for removed symbols disappear too.
+        fileSystemOperations.sync {
+            from(stagingDir)
+            into(outputDirectory)
         }
     }
 }

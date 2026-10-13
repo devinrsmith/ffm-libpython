@@ -2,8 +2,11 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.plugins.JavaPlugin
 import org.gradle.api.tasks.SourceSetContainer
+import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.api.tasks.javadoc.Javadoc
 import org.gradle.kotlin.dsl.getByName
 import org.gradle.kotlin.dsl.register
+import org.gradle.kotlin.dsl.withType
 
 /**
  * Registers a `jextract` task and adds its output directory to the `main`
@@ -17,7 +20,7 @@ class JextractPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         val generatedSources = project.layout.projectDirectory.dir("src/main/jextract")
 
-        project.tasks.register<JextractTask>("jextract") {
+        val jextract = project.tasks.register<JextractTask>("jextract") {
             group = "build setup"
             description = "Regenerates the checked-in FFM bindings with jextract."
             executable.convention(project.providers.gradleProperty("jextract.executable").orElse("jextract"))
@@ -32,6 +35,10 @@ class JextractPlugin : Plugin<Project> {
                 // not trigger (and so require) jextract.
                 java.srcDir(generatedSources)
             }
+            // ...but when both are requested (`./gradlew jextract build`), compile
+            // the freshly generated sources rather than racing their regeneration.
+            project.tasks.withType<JavaCompile>().configureEach { mustRunAfter(jextract) }
+            project.tasks.withType<Javadoc>().configureEach { mustRunAfter(jextract) }
         }
     }
 }
