@@ -1,11 +1,11 @@
 package com.example.ffm.python;
 
-import static com.example.ffm.python.capi.CApi.Py_Version;
-import static com.example.ffm.python.capi.CApi.RTLD_GLOBAL;
-import static com.example.ffm.python.capi.CApi.RTLD_NOLOAD;
-import static com.example.ffm.python.capi.CApi.RTLD_NOW;
-import static com.example.ffm.python.capi.CApi.dlerror;
-import static com.example.ffm.python.capi.CApi.dlopen;
+import static com.example.ffm.python.capi.stable.CApi.Py_Version;
+import static com.example.ffm.python.capi.stable.CApi.RTLD_GLOBAL;
+import static com.example.ffm.python.capi.stable.CApi.RTLD_NOLOAD;
+import static com.example.ffm.python.capi.stable.CApi.RTLD_NOW;
+import static com.example.ffm.python.capi.stable.CApi.dlerror;
+import static com.example.ffm.python.capi.stable.CApi.dlopen;
 
 import java.io.IOException;
 import java.lang.foreign.Arena;

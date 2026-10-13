@@ -1,27 +1,31 @@
 package com.example.ffm.python;
 
-import static com.example.ffm.python.capi.CApi.PyErr_Print;
-import static com.example.ffm.python.capi.CApi.PyEval_EvalCode;
-import static com.example.ffm.python.capi.CApi.PyImport_AddModule;
-import static com.example.ffm.python.capi.CApi.PyModule_GetDict;
-import static com.example.ffm.python.capi.CApi.Py_CompileString;
-import static com.example.ffm.python.capi.CApi.Py_DecRef;
-import static com.example.ffm.python.capi.CApi.Py_FinalizeEx;
-import static com.example.ffm.python.capi.CApi.Py_GetBuildInfo;
-import static com.example.ffm.python.capi.CApi.Py_GetCompiler;
-import static com.example.ffm.python.capi.CApi.Py_GetExecPrefix;
-import static com.example.ffm.python.capi.CApi.Py_GetPath;
-import static com.example.ffm.python.capi.CApi.Py_GetPlatform;
-import static com.example.ffm.python.capi.CApi.Py_GetPrefix;
-import static com.example.ffm.python.capi.CApi.Py_GetProgramFullPath;
-import static com.example.ffm.python.capi.CApi.Py_GetProgramName;
-import static com.example.ffm.python.capi.CApi.Py_GetPythonHome;
-import static com.example.ffm.python.capi.CApi.Py_GetVersion;
-import static com.example.ffm.python.capi.CApi.Py_InitializeEx;
-import static com.example.ffm.python.capi.CApi.Py_IsInitialized;
-import static com.example.ffm.python.capi.CApi.Py_SetProgramName;
-import static com.example.ffm.python.capi.CApi.Py_file_input;
+import static com.example.ffm.python.capi.cpython.CPython.PyInterpreterConfig_OWN_GIL;
+import static com.example.ffm.python.capi.cpython.CPython.PyStatus_Exception;
+import static com.example.ffm.python.capi.cpython.CPython.Py_NewInterpreterFromConfig;
+import static com.example.ffm.python.capi.stable.CApi.PyEval_RestoreThread;
+import static com.example.ffm.python.capi.stable.CApi.PyEval_SaveThread;
+import static com.example.ffm.python.capi.stable.CApi.PyGILState_Ensure;
+import static com.example.ffm.python.capi.stable.CApi.PyGILState_Release;
+import static com.example.ffm.python.capi.stable.CApi.PyThreadState_Get;
+import static com.example.ffm.python.capi.stable.CApi.Py_FinalizeEx;
+import static com.example.ffm.python.capi.stable.CApi.Py_GetBuildInfo;
+import static com.example.ffm.python.capi.stable.CApi.Py_GetCompiler;
+import static com.example.ffm.python.capi.stable.CApi.Py_GetExecPrefix;
+import static com.example.ffm.python.capi.stable.CApi.Py_GetPath;
+import static com.example.ffm.python.capi.stable.CApi.Py_GetPlatform;
+import static com.example.ffm.python.capi.stable.CApi.Py_GetPrefix;
+import static com.example.ffm.python.capi.stable.CApi.Py_GetProgramFullPath;
+import static com.example.ffm.python.capi.stable.CApi.Py_GetProgramName;
+import static com.example.ffm.python.capi.stable.CApi.Py_GetPythonHome;
+import static com.example.ffm.python.capi.stable.CApi.Py_GetVersion;
+import static com.example.ffm.python.capi.stable.CApi.Py_InitializeEx;
+import static com.example.ffm.python.capi.stable.CApi.Py_IsInitialized;
+import static com.example.ffm.python.capi.stable.CApi.Py_SetProgramName;
+import static java.lang.foreign.ValueLayout.ADDRESS;
 
+import com.example.ffm.python.capi.cpython.PyInterpreterConfig;
+import com.example.ffm.python.capi.cpython.PyStatus;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteOrder;
@@ -31,13 +35,17 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Optional;
 import java.util.SequencedMap;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * An embedded CPython interpreter, valid from {@link #start()} until {@link #close()}.
  *
- * <p>CPython has one interpreter per process, and the thread that initializes it
- * holds the GIL. This class is therefore confined to the thread that started it;
- * calls from other threads would need {@code PyGILState_Ensure}/{@code Release}.
+ * <p>This is CPython's main interpreter, of which there is one per process. It is
+ * confined to the thread that started it, which attaches to it (taking the main
+ * GIL) only for the duration of each call; in between, the GIL is released. Other
+ * threads can create isolated {@linkplain #newSubInterpreter() sub-interpreters},
+ * each with its own GIL.
  *
  * <p>Python writes to the process's native stdout/stderr, not to {@link System#out},
  * and buffers that output: when stdout is not a terminal, it may only appear once
@@ -54,11 +62,17 @@ public final class EmbeddedPython implements AutoCloseable {
 
     private final LibPython.Selection selection;
     private final Thread owner;
-    private boolean closed;
+    /** The owner thread's thread state, detached (GIL released) between calls. */
+    private final MemorySegment threadState;
+    /** Guards closed and creating sub-interpreters against finalization. */
+    private final Object lifecycle = new Object();
+    private final Set<SubInterpreter> subInterpreters = ConcurrentHashMap.newKeySet();
+    private volatile boolean closed;
 
-    private EmbeddedPython(LibPython.Selection selection) {
+    private EmbeddedPython(LibPython.Selection selection, MemorySegment threadState) {
         this.selection = selection;
         this.owner = Thread.currentThread();
+        this.threadState = threadState;
     }
 
     /**
@@ -85,7 +99,9 @@ public final class EmbeddedPython implements AutoCloseable {
         // initsigs = 0: do not let Python install signal handlers (SIGINT etc.),
         // which belong to the JVM.
         Py_InitializeEx(0);
-        return new EmbeddedPython(selection);
+        // Release the GIL, so that other threads can attach (e.g. to create
+        // sub-interpreters) while this one is not running Python code.
+        return new EmbeddedPython(selection, PyEval_SaveThread());
     }
 
     /** Whether a Python interpreter is currently initialized in this process. */
@@ -130,18 +146,23 @@ public final class EmbeddedPython implements AutoCloseable {
     public SequencedMap<String, String> configuration() {
         checkUsable();
         SequencedMap<String, String> configuration = new LinkedHashMap<>();
-        // Path configuration: wchar_t strings owned by CPython.
-        put(configuration, "Py_GetProgramName", Py_GetProgramName(), WCHAR_CHARSET);
-        put(configuration, "Py_GetProgramFullPath", Py_GetProgramFullPath(), WCHAR_CHARSET);
-        put(configuration, "Py_GetPythonHome", Py_GetPythonHome(), WCHAR_CHARSET);
-        put(configuration, "Py_GetPrefix", Py_GetPrefix(), WCHAR_CHARSET);
-        put(configuration, "Py_GetExecPrefix", Py_GetExecPrefix(), WCHAR_CHARSET);
-        put(configuration, "Py_GetPath", Py_GetPath(), WCHAR_CHARSET);
-        // Build information: static UTF-8 strings.
-        put(configuration, "Py_GetVersion", Py_GetVersion(), StandardCharsets.UTF_8);
-        put(configuration, "Py_GetPlatform", Py_GetPlatform(), StandardCharsets.UTF_8);
-        put(configuration, "Py_GetCompiler", Py_GetCompiler(), StandardCharsets.UTF_8);
-        put(configuration, "Py_GetBuildInfo", Py_GetBuildInfo(), StandardCharsets.UTF_8);
+        PyEval_RestoreThread(threadState);
+        try {
+            // Path configuration: wchar_t strings owned by CPython.
+            put(configuration, "Py_GetProgramName", Py_GetProgramName(), WCHAR_CHARSET);
+            put(configuration, "Py_GetProgramFullPath", Py_GetProgramFullPath(), WCHAR_CHARSET);
+            put(configuration, "Py_GetPythonHome", Py_GetPythonHome(), WCHAR_CHARSET);
+            put(configuration, "Py_GetPrefix", Py_GetPrefix(), WCHAR_CHARSET);
+            put(configuration, "Py_GetExecPrefix", Py_GetExecPrefix(), WCHAR_CHARSET);
+            put(configuration, "Py_GetPath", Py_GetPath(), WCHAR_CHARSET);
+            // Build information: static UTF-8 strings.
+            put(configuration, "Py_GetVersion", Py_GetVersion(), StandardCharsets.UTF_8);
+            put(configuration, "Py_GetPlatform", Py_GetPlatform(), StandardCharsets.UTF_8);
+            put(configuration, "Py_GetCompiler", Py_GetCompiler(), StandardCharsets.UTF_8);
+            put(configuration, "Py_GetBuildInfo", Py_GetBuildInfo(), StandardCharsets.UTF_8);
+        } finally {
+            PyEval_SaveThread();
+        }
         return configuration;
     }
 
@@ -163,49 +184,99 @@ public final class EmbeddedPython implements AutoCloseable {
      */
     public void exec(String source) {
         checkUsable();
-        try (Arena arena = Arena.ofConfined()) {
-            // Both return borrowed references: nothing to release.
-            MemorySegment main = PyImport_AddModule(arena.allocateFrom("__main__"));
-            if (main.equals(MemorySegment.NULL)) {
-                throw pythonError("could not get the __main__ module");
-            }
-            MemorySegment globals = PyModule_GetDict(main);
-
-            // allocateFrom copies the Java string into native memory as NUL-terminated
-            // UTF-8, which is what CPython expects; the arena frees it afterwards.
-            MemorySegment code = Py_CompileString(arena.allocateFrom(source), arena.allocateFrom("<string>"), Py_file_input());
-            if (code.equals(MemorySegment.NULL)) {
-                throw pythonError("Python code failed to compile");
-            }
-            MemorySegment result = PyEval_EvalCode(code, globals, globals);
-            Py_DecRef(code);
-            if (result.equals(MemorySegment.NULL)) {
-                throw pythonError("Python code raised an exception");
-            }
-            Py_DecRef(result);
+        PyEval_RestoreThread(threadState);
+        try {
+            PythonCode.run(source);
+        } finally {
+            PyEval_SaveThread();
         }
     }
 
-    /** Prints and clears the pending Python exception, returning a Java one to throw. */
-    private static PythonException pythonError(String message) {
-        PyErr_Print();
-        return new PythonException(message + " (traceback printed to stderr)");
+    /**
+     * Creates an isolated sub-interpreter with its own GIL, confined to the calling
+     * thread. Sub-interpreters on different threads run Python code in parallel,
+     * with each other and with the main interpreter.
+     *
+     * <p>Can be called from any platform thread (not a virtual thread: CPython ties
+     * a thread state to its OS thread). Every sub-interpreter must be closed before
+     * this interpreter is.
+     *
+     * <p>Isolation has a cost: extension modules that do not support it (those using
+     * legacy single-phase initialization) cannot be imported in a sub-interpreter,
+     * nor can it fork, exec or start daemon threads.
+     *
+     * @throws PythonException if CPython fails to create it
+     */
+    public SubInterpreter newSubInterpreter() {
+        SubInterpreter.checkPlatformThread();
+        synchronized (lifecycle) {
+            if (closed) {
+                throw new IllegalStateException("The Python interpreter has been finalized");
+            }
+            // Attach this thread to the main interpreter: creating a sub-interpreter
+            // requires a current thread state. Reuses the owner's thread state when
+            // called from the owner thread.
+            int gilState = PyGILState_Ensure();
+            try (Arena arena = Arena.ofConfined()) {
+                MemorySegment mainState = PyThreadState_Get();
+                // CPython's _PyInterpreterConfig_INIT: fully isolated, with its own GIL.
+                MemorySegment config = PyInterpreterConfig.allocate(arena);
+                PyInterpreterConfig.use_main_obmalloc(config, 0);
+                PyInterpreterConfig.allow_fork(config, 0);
+                PyInterpreterConfig.allow_exec(config, 0);
+                PyInterpreterConfig.allow_threads(config, 1);
+                PyInterpreterConfig.allow_daemon_threads(config, 0);
+                PyInterpreterConfig.check_multi_interp_extensions(config, 1);
+                PyInterpreterConfig.gil(config, PyInterpreterConfig_OWN_GIL());
+
+                MemorySegment newState = arena.allocate(ADDRESS);
+                MemorySegment status = Py_NewInterpreterFromConfig(arena, newState, config);
+                if (PyStatus_Exception(status) != 0) {
+                    // On failure, CPython has restored mainState as the current one.
+                    MemorySegment message = PyStatus.err_msg(status);
+                    throw new PythonException("Py_NewInterpreterFromConfig failed: "
+                            + (message.equals(MemorySegment.NULL) ? "unknown error" : message.getString(0)));
+                }
+                // The new interpreter's thread state is now current, holding its own
+                // GIL (the main GIL was released). Detach it, then return to the main
+                // interpreter so that PyGILState_Release can undo PyGILState_Ensure.
+                MemorySegment subState = PyEval_SaveThread();
+                PyEval_RestoreThread(mainState);
+                SubInterpreter subInterpreter = new SubInterpreter(this, subState);
+                subInterpreters.add(subInterpreter);
+                return subInterpreter;
+            } finally {
+                PyGILState_Release(gilState);
+            }
+        }
+    }
+
+    /** Called by a sub-interpreter once it has ended. */
+    void ended(SubInterpreter subInterpreter) {
+        subInterpreters.remove(subInterpreter);
     }
 
     /**
      * Finalizes the interpreter, flushing Python's buffered output.
      *
+     * @throws IllegalStateException if sub-interpreters are still open
      * @throws PythonException if flushing buffered data failed during finalization
      */
     @Override
     public void close() {
-        if (closed) {
-            return;
-        }
-        checkUsable();
-        closed = true;
-        if (Py_FinalizeEx() < 0) {
-            throw new PythonException("Py_FinalizeEx failed to flush buffered data");
+        synchronized (lifecycle) {
+            if (closed) {
+                return;
+            }
+            checkUsable();
+            if (!subInterpreters.isEmpty()) {
+                throw new IllegalStateException(subInterpreters.size() + " sub-interpreter(s) still open");
+            }
+            closed = true;
+            PyEval_RestoreThread(threadState);
+            if (Py_FinalizeEx() < 0) {
+                throw new PythonException("Py_FinalizeEx failed to flush buffered data");
+            }
         }
     }
 

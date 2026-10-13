@@ -1,11 +1,20 @@
 package com.example.ffm.python;
 
-/** Initializes CPython, runs a {@code print} statement, and finalizes it again. */
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
+/**
+ * Initializes CPython, runs a {@code print} statement and a few sub-interpreters,
+ * and finalizes it again.
+ */
 public final class Main {
 
     private Main() {}
 
-    static void main() {
+    static void main() throws Exception {
         System.out.println("Java: starting embedded Python");
         // Flush Java's buffer before Python writes to the same file descriptor.
         System.out.flush();
@@ -23,9 +32,34 @@ public final class Main {
                     import sys
                     print(f"Hello from Python {sys.version.split()[0]}, embedded in Java via FFM!")
                     print(f"sys.prefix = {sys.prefix}")
+                    sys.stdout.flush()  # buffered until finalization otherwise, when not a terminal
                     """);
+            runSubInterpreters(python, 3);
         }
 
         System.out.println("Java: Python finalized");
+    }
+
+    /** Runs isolated sub-interpreters, each on its own thread and with its own GIL. */
+    private static void runSubInterpreters(EmbeddedPython python, int count) throws Exception {
+        System.out.println("Java: running " + count + " sub-interpreters on " + count + " threads");
+        System.out.flush();
+        try (ExecutorService executor = Executors.newFixedThreadPool(count)) {
+            List<Future<?>> results = new ArrayList<>();
+            for (int i = 0; i < count; i++) {
+                int n = i;
+                results.add(executor.submit(() -> {
+                    try (SubInterpreter sub = python.newSubInterpreter()) {
+                        sub.exec("""
+                                import sys, threading
+                                print(f"[sub-interpreter %d] own sys module at {id(sys):#x}, native thread {threading.get_native_id()}", flush=True)
+                                """.formatted(n));
+                    }
+                }));
+            }
+            for (Future<?> result : results) {
+                result.get();
+            }
+        }
     }
 }

@@ -1,11 +1,14 @@
 import org.gradle.api.DefaultTask
+import org.gradle.api.file.Directory
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.FileSystemOperations
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.Provider
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
@@ -64,8 +67,17 @@ abstract class JextractTask : DefaultTask() {
     @get:Input
     abstract val useSystemLoadLibrary: Property<Boolean>
 
+    /**
+     * The source root to generate into. Several tasks can share one: each only
+     * replaces its own [targetPackage] directory within it.
+     */
+    @get:Internal
+    abstract val sourceRoot: DirectoryProperty
+
+    /** The directory of [targetPackage] under [sourceRoot]: what this task owns. */
     @get:OutputDirectory
-    abstract val outputDirectory: DirectoryProperty
+    val packageDirectory: Provider<Directory>
+        get() = sourceRoot.zip(targetPackage) { root, pkg -> root.dir(pkg.replace('.', '/')) }
 
     @get:Inject
     protected abstract val execOperations: ExecOperations
@@ -94,9 +106,10 @@ abstract class JextractTask : DefaultTask() {
         }
 
         // Sync rather than copy, so bindings for removed symbols disappear too.
+        val packagePath = targetPackage.get().replace('.', '/')
         fileSystemOperations.sync {
-            from(stagingDir)
-            into(outputDirectory)
+            from(stagingDir.resolve(packagePath))
+            into(packageDirectory)
         }
     }
 }

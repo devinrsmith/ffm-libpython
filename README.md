@@ -116,18 +116,23 @@ like `python` does, so it ended up on a 3.15 interpreter's module search path.
 ## Layout
 
 ```
-build-logic/                      included build: the `jextract` task and plugin
+build-logic/                      included build: the `JextractTask` type and plugin
 flake.nix                         Nix dev shell (JDK 25, jextract, Python 3.12, vendored Gradle)
 gradle/libs.versions.toml         version catalog
-jextract/capi.symbols             which C symbols jextract generates bindings for
+jextract/stable.symbols           C symbols to bind from the Stable ABI
+jextract/cpython.symbols          ...and from CPython's version-specific API
 src/main/jextract/                generated bindings (committed, do not edit)
+  .../capi/stable/                  CApi: Stable ABI, plus <dlfcn.h>
+  .../capi/cpython/                 CPython: sub-interpreter creation
 src/main/java/                    module com.example.ffm.python
   com/example/ffm/python/
-    EmbeddedPython.java           AutoCloseable wrapper: start / exec / close
+    EmbeddedPython.java           the main interpreter: start / exec / close
+    SubInterpreter.java           an isolated sub-interpreter with its own GIL
+    PythonCode.java               runs source in the current interpreter
     LibPython.java                finds, loads and checks libpython at runtime
     PythonVersion.java            Py_Version / PY_VERSION_HEX, unpacked
     Main.java                     the demo
-src/test/java/                    lifecycle test
+src/test/java/                    tests (each class in its own JVM)
 ```
 
 ## The bindings
@@ -144,9 +149,14 @@ The headers come from the interpreter named by the Gradle property
 `jextract.python` (default `python3.12`, in `gradle.properties`). It should
 stay the *oldest* supported version.
 
-The task generates only the symbols listed in `jextract/capi.symbols`, a
-jextract argument file. To bind more of the C API, add lines to it. Two
-headers are extracted into one class, `com.example.ffm.python.capi.CApi`:
+`./gradlew jextract` runs two tasks. Each generates only the symbols listed in
+its jextract argument file, into its own package. To bind more of the C API,
+add lines to the right file. jextract silently skips symbols it can't find, so
+check the generated code afterwards.
+
+**`jextractStableAbi`** reads `jextract/stable.symbols` and generates
+`com.example.ffm.python.capi.stable.CApi`. Almost everything comes from here.
+It extracts two headers:
 
 - `<Python.h>`, with `Py_LIMITED_API=0x030C0000` defined. CPython then exposes
   only the Stable ABI as of 3.12, the functions it promises to keep in every
@@ -165,6 +175,15 @@ jextract -D Py_LIMITED_API=0x030C0000 -I <include dir> --dump-includes all.symbo
 
 Function-like macros can't be extracted. Bind the function behind them
 instead, for example `Py_DecRef` for `Py_DECREF`.
+
+**`jextractCPython`** reads `jextract/cpython.symbols` and generates
+`com.example.ffm.python.capi.cpython.CPython`. This is the exception:
+`<Python.h>` without `Py_LIMITED_API`, for the one thing the Stable ABI lacks,
+[sub-interpreters with their own GIL](#sub-interpreters). These bindings are
+tied to the 3.12 headers, so they're kept to symbols whose declarations and
+struct layouts are unchanged in every supported version: `PyInterpreterConfig`
+and `PyStatus` are identical from 3.12 through 3.15. A future Python that
+changes them would need these bindings regenerated or guarded per version.
 
 No `--library` is given to jextract. The generated code looks symbols up only
 through `SymbolLookup.loaderLookup()`, which finds whatever library
@@ -216,6 +235,10 @@ Java: Python configuration:
   Py_GetBuildInfo()       = main, Oct  9 2026, 11:16:41
 Hello from Python 3.15.0, embedded in Java via FFM!
 sys.prefix = /home/me/.venv
+Java: running 3 sub-interpreters on 3 threads
+[sub-interpreter 0] own sys module at 0x7fffc46c2750, native thread 37162
+[sub-interpreter 2] own sys module at 0x7fffc44be750, native thread 37164
+[sub-interpreter 1] own sys module at 0x7fffc42ba750, native thread 37163
 Java: Python finalized
 ```
 
@@ -247,6 +270,45 @@ versions.** Up to 3.13 they report the venv's *base* installation, even though
 and `Py_GetProgramFullPath()` name the venv's `python` on every version, so use
 those (or `sys.prefix`) to tell whether a venv is in effect.
 
+## Sub-interpreters
+
+`EmbeddedPython.newSubInterpreter()` creates an isolated sub-interpreter
+with **its own GIL**, using `Py_NewInterpreterFromConfig` with CPython's
+isolated defaults. Each one has its own modules, `sys` and `__main__`. Since
+they don't share a GIL, sub-interpreters on different Java threads run Python
+code in parallel. The tests check this by timing: two CPU-bound loops on two
+threads take about as long as one.
+
+```java
+try (EmbeddedPython python = EmbeddedPython.start()) {
+    // On any platform thread:
+    try (SubInterpreter sub = python.newSubInterpreter()) {
+        sub.exec("import math; print(math.pi)");
+    }
+}
+```
+
+The rules, all enforced:
+
+- **Confined to its creating thread.** CPython ties a sub-interpreter's thread
+  state to that OS thread. For the same reason, virtual threads are rejected,
+  since they can move between OS threads.
+- **Close sub-interpreters before the main interpreter.**
+  `EmbeddedPython.close()` refuses while any are open, because CPython 3.12
+  can't finalize around live sub-interpreters.
+- **Some extension modules can't be imported.** Isolated interpreters accept
+  only extension modules that support multi-phase initialization. That covers
+  most of the stdlib (`math`, `json`, `zlib`, `_sqlite3`, `_ssl`, …). Every
+  version refuses `readline` and `_curses`, and 3.12 also refuses `_ctypes`,
+  `_decimal` and `_datetime`. A refused import is an ordinary `ImportError`,
+  which `exec` throws as a `PythonException`.
+- Isolated interpreters also can't fork, exec, or start daemon threads.
+
+Creation briefly attaches the calling thread to the main interpreter with
+`PyGILState_Ensure`, as `Py_NewInterpreterFromConfig` requires, and detaches
+again before returning. `exec` attaches only the sub-interpreter's own thread
+state, so running code never contends for the main GIL.
+
 ## Design notes
 
 - **Native access is explicit.** FFM downcalls are restricted methods. The app
@@ -263,12 +325,14 @@ those (or `sys.prefix`) to tell whether a venv is in effect.
   symbols like `PyExc_StopIteration` from the global namespace, so without a
   fix even `import math` fails with "undefined symbol". `LibPython` re-opens
   the already-loaded libpython with `RTLD_NOW | RTLD_NOLOAD | RTLD_GLOBAL`.
-- **Use one thread, and start the interpreter once.** The thread that
-  initializes CPython holds the GIL, so `EmbeddedPython` refuses calls from any
-  other thread. Supporting other threads would mean binding
-  `PyGILState_Ensure`/`PyGILState_Release`. CPython can't be reliably
-  re-initialized in the same process, so the test runs the whole lifecycle
-  once.
+- **Threads and the GIL.** `EmbeddedPython` is confined to the thread that
+  started it. That thread holds the main GIL only during each call
+  (`PyEval_RestoreThread` … `PyEval_SaveThread`) and releases it in between, so
+  other threads can create [sub-interpreters](#sub-interpreters) and Python's
+  own threads can run.
+- **Start the interpreter once per process.** CPython can't be reliably
+  re-initialized in the same process, so the build runs each test class in its
+  own JVM (`forkEvery = 1`).
 - **Python's output doesn't go through `System.out`.** Python writes straight
   to the native stdout and stderr. When stdout isn't a terminal, Python buffers
   that output until finalization, so it can interleave with Java's output in

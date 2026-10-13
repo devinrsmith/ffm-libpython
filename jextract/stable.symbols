@@ -44,3 +44,12 @@
 --include-constant RTLD_NOW
 --include-constant RTLD_GLOBAL
 --include-constant RTLD_NOLOAD
+
+# Thread states and the GIL: attaching threads, and sub-interpreters.
+--include-function PyEval_SaveThread
+--include-function PyEval_RestoreThread
+--include-function PyGILState_Ensure
+--include-function PyGILState_Release
+--include-function PyThreadState_Get
+--include-function PyThreadState_Swap
+--include-function Py_EndInterpreter
