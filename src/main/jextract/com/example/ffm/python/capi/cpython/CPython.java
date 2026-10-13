@@ -111,6 +111,64 @@ public class CPython extends CPython$shared {
         }
     }
 
+    private static class PyInterpreterState_Main {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            CPython.C_POINTER    );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("PyInterpreterState_Main");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * PyInterpreterState *PyInterpreterState_Main(void)
+     * }
+     */
+    public static FunctionDescriptor PyInterpreterState_Main$descriptor() {
+        return PyInterpreterState_Main.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * PyInterpreterState *PyInterpreterState_Main(void)
+     * }
+     */
+    public static MethodHandle PyInterpreterState_Main$handle() {
+        return PyInterpreterState_Main.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * PyInterpreterState *PyInterpreterState_Main(void)
+     * }
+     */
+    public static MemorySegment PyInterpreterState_Main$address() {
+        return PyInterpreterState_Main.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * PyInterpreterState *PyInterpreterState_Main(void)
+     * }
+     */
+    public static MemorySegment PyInterpreterState_Main() {
+        var mh$ = PyInterpreterState_Main.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("PyInterpreterState_Main");
+            }
+            return (MemorySegment)mh$.invokeExact();
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
     private static class Py_NewInterpreterFromConfig {
         public static final FunctionDescriptor DESC = FunctionDescriptor.of(
             PyStatus.layout(),

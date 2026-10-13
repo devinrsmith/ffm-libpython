@@ -172,6 +172,17 @@ public final class EmbeddedPython implements AutoCloseable {
         map.put(name, string.equals(MemorySegment.NULL) ? null : string.getString(0, charset));
     }
 
+    /** Diagnostics about the main interpreter, from {@code PyInterpreterState_Get*()}. */
+    public InterpreterInfo interpreterInfo() {
+        checkUsable();
+        PyEval_RestoreThread(threadState);
+        try {
+            return InterpreterInfo.current();
+        } finally {
+            PyEval_SaveThread();
+        }
+    }
+
     /**
      * Runs Python source code in the {@code __main__} module, like
      * {@code PyRun_SimpleString} (which is not part of the Stable ABI).

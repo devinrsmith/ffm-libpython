@@ -31,6 +31,17 @@ public final class SubInterpreter implements AutoCloseable {
         this.threadState = threadState;
     }
 
+    /** Diagnostics about this sub-interpreter, from {@code PyInterpreterState_Get*()}. */
+    public InterpreterInfo interpreterInfo() {
+        checkUsable();
+        PyEval_RestoreThread(threadState);
+        try {
+            return InterpreterInfo.current();
+        } finally {
+            PyEval_SaveThread();
+        }
+    }
+
     /**
      * Runs Python source code in this sub-interpreter's {@code __main__} module.
      *

@@ -2,6 +2,8 @@ package com.example.ffm.python;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -45,6 +47,30 @@ class SubInterpreterTest {
             b.exec("import sys; assert 'x' not in globals(); assert not hasattr(sys, 'marker')");
             python.exec("import sys; assert 'x' not in globals(); assert not hasattr(sys, 'marker')");
             a.exec("assert x == 1 and sys.marker == 'a'");
+        }
+    }
+
+    @Test
+    void reportsInterpreterDiagnostics() {
+        InterpreterInfo main = python.interpreterInfo();
+        assertEquals(0, main.id());
+        assertTrue(main.main());
+        try (SubInterpreter a = python.newSubInterpreter(); SubInterpreter b = python.newSubInterpreter()) {
+            InterpreterInfo infoA = a.interpreterInfo();
+            InterpreterInfo infoB = b.interpreterInfo();
+            for (InterpreterInfo sub : List.of(infoA, infoB)) {
+                assertFalse(sub.main(), sub::toString);
+                assertTrue(sub.id() > 0, sub::toString);
+                assertNotEquals(main.stateAddress(), sub.stateAddress(), sub::toString);
+            }
+            assertNotEquals(infoA.id(), infoB.id());
+            assertNotEquals(infoA.stateAddress(), infoB.stateAddress());
+            // Stable while the interpreter lives.
+            assertEquals(infoA, a.interpreterInfo());
+        }
+        // IDs are never reused.
+        try (SubInterpreter c = python.newSubInterpreter()) {
+            assertTrue(c.interpreterInfo().id() > 2, c.interpreterInfo()::toString);
         }
     }
 

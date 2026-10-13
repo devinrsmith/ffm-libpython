@@ -53,3 +53,11 @@
 --include-function PyThreadState_Get
 --include-function PyThreadState_Swap
 --include-function Py_EndInterpreter
+
+# Interpreter diagnostics.
+--include-function PyInterpreterState_Get
+--include-function PyInterpreterState_GetID
+--include-function PyInterpreterState_GetDict
+--include-function PyThreadState_GetID
+--include-function PyThreadState_GetInterpreter
+--include-function PyDict_Size

@@ -24,6 +24,7 @@ public final class Main {
             python.executable().ifPresent(executable -> System.out.println("Java: as " + executable));
             PythonVersion version = python.version();
             System.out.printf("Java: Py_Version = 0x%08X = %s (%s)%n", version.hex(), version, version.releaseLevel().pythonName());
+            System.out.println("Java: " + python.interpreterInfo());
             System.out.println("Java: Python configuration:");
             python.configuration().forEach((name, value) ->
                     System.out.printf("  %-23s = %s%n", name + "()", value == null ? "(not set)" : value));
@@ -50,6 +51,8 @@ public final class Main {
                 int n = i;
                 results.add(executor.submit(() -> {
                     try (SubInterpreter sub = python.newSubInterpreter()) {
+                        System.out.println("Java: [sub-interpreter " + n + "] " + sub.interpreterInfo());
+                        System.out.flush();
                         sub.exec("""
                                 import sys, threading
                                 print(f"[sub-interpreter %d] own sys module at {id(sys):#x}, native thread {threading.get_native_id()}", flush=True)

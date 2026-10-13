@@ -119,6 +119,184 @@ public class CApi extends CApi$shared {
         }
     }
 
+    private static class PyInterpreterState_Get {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            CApi.C_POINTER    );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("PyInterpreterState_Get");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * PyInterpreterState *PyInterpreterState_Get(void)
+     * }
+     */
+    public static FunctionDescriptor PyInterpreterState_Get$descriptor() {
+        return PyInterpreterState_Get.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * PyInterpreterState *PyInterpreterState_Get(void)
+     * }
+     */
+    public static MethodHandle PyInterpreterState_Get$handle() {
+        return PyInterpreterState_Get.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * PyInterpreterState *PyInterpreterState_Get(void)
+     * }
+     */
+    public static MemorySegment PyInterpreterState_Get$address() {
+        return PyInterpreterState_Get.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * PyInterpreterState *PyInterpreterState_Get(void)
+     * }
+     */
+    public static MemorySegment PyInterpreterState_Get() {
+        var mh$ = PyInterpreterState_Get.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("PyInterpreterState_Get");
+            }
+            return (MemorySegment)mh$.invokeExact();
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class PyInterpreterState_GetDict {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            CApi.C_POINTER,
+            CApi.C_POINTER
+        );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("PyInterpreterState_GetDict");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * PyObject *PyInterpreterState_GetDict(PyInterpreterState *)
+     * }
+     */
+    public static FunctionDescriptor PyInterpreterState_GetDict$descriptor() {
+        return PyInterpreterState_GetDict.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * PyObject *PyInterpreterState_GetDict(PyInterpreterState *)
+     * }
+     */
+    public static MethodHandle PyInterpreterState_GetDict$handle() {
+        return PyInterpreterState_GetDict.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * PyObject *PyInterpreterState_GetDict(PyInterpreterState *)
+     * }
+     */
+    public static MemorySegment PyInterpreterState_GetDict$address() {
+        return PyInterpreterState_GetDict.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * PyObject *PyInterpreterState_GetDict(PyInterpreterState *)
+     * }
+     */
+    public static MemorySegment PyInterpreterState_GetDict(MemorySegment x0) {
+        var mh$ = PyInterpreterState_GetDict.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("PyInterpreterState_GetDict", x0);
+            }
+            return (MemorySegment)mh$.invokeExact(x0);
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class PyInterpreterState_GetID {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            CApi.C_LONG,
+            CApi.C_POINTER
+        );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("PyInterpreterState_GetID");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * int64_t PyInterpreterState_GetID(PyInterpreterState *)
+     * }
+     */
+    public static FunctionDescriptor PyInterpreterState_GetID$descriptor() {
+        return PyInterpreterState_GetID.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * int64_t PyInterpreterState_GetID(PyInterpreterState *)
+     * }
+     */
+    public static MethodHandle PyInterpreterState_GetID$handle() {
+        return PyInterpreterState_GetID.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * int64_t PyInterpreterState_GetID(PyInterpreterState *)
+     * }
+     */
+    public static MemorySegment PyInterpreterState_GetID$address() {
+        return PyInterpreterState_GetID.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * int64_t PyInterpreterState_GetID(PyInterpreterState *)
+     * }
+     */
+    public static long PyInterpreterState_GetID(MemorySegment x0) {
+        var mh$ = PyInterpreterState_GetID.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("PyInterpreterState_GetID", x0);
+            }
+            return (long)mh$.invokeExact(x0);
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
     private static class PyThreadState_Get {
         public static final FunctionDescriptor DESC = FunctionDescriptor.of(
             CApi.C_POINTER    );
@@ -237,6 +415,126 @@ public class CApi extends CApi$shared {
         }
     }
 
+    private static class PyThreadState_GetInterpreter {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            CApi.C_POINTER,
+            CApi.C_POINTER
+        );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("PyThreadState_GetInterpreter");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * PyInterpreterState *PyThreadState_GetInterpreter(PyThreadState *tstate)
+     * }
+     */
+    public static FunctionDescriptor PyThreadState_GetInterpreter$descriptor() {
+        return PyThreadState_GetInterpreter.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * PyInterpreterState *PyThreadState_GetInterpreter(PyThreadState *tstate)
+     * }
+     */
+    public static MethodHandle PyThreadState_GetInterpreter$handle() {
+        return PyThreadState_GetInterpreter.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * PyInterpreterState *PyThreadState_GetInterpreter(PyThreadState *tstate)
+     * }
+     */
+    public static MemorySegment PyThreadState_GetInterpreter$address() {
+        return PyThreadState_GetInterpreter.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * PyInterpreterState *PyThreadState_GetInterpreter(PyThreadState *tstate)
+     * }
+     */
+    public static MemorySegment PyThreadState_GetInterpreter(MemorySegment tstate) {
+        var mh$ = PyThreadState_GetInterpreter.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("PyThreadState_GetInterpreter", tstate);
+            }
+            return (MemorySegment)mh$.invokeExact(tstate);
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class PyThreadState_GetID {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            CApi.C_LONG,
+            CApi.C_POINTER
+        );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("PyThreadState_GetID");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * uint64_t PyThreadState_GetID(PyThreadState *tstate)
+     * }
+     */
+    public static FunctionDescriptor PyThreadState_GetID$descriptor() {
+        return PyThreadState_GetID.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * uint64_t PyThreadState_GetID(PyThreadState *tstate)
+     * }
+     */
+    public static MethodHandle PyThreadState_GetID$handle() {
+        return PyThreadState_GetID.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * uint64_t PyThreadState_GetID(PyThreadState *tstate)
+     * }
+     */
+    public static MemorySegment PyThreadState_GetID$address() {
+        return PyThreadState_GetID.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * uint64_t PyThreadState_GetID(PyThreadState *tstate)
+     * }
+     */
+    public static long PyThreadState_GetID(MemorySegment tstate) {
+        var mh$ = PyThreadState_GetID.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("PyThreadState_GetID", tstate);
+            }
+            return (long)mh$.invokeExact(tstate);
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
     private static class PyGILState_Ensure {
         public static final FunctionDescriptor DESC = FunctionDescriptor.of(
             CApi.C_INT    );
@@ -347,6 +645,66 @@ public class CApi extends CApi$shared {
                 traceDowncall("PyGILState_Release", x0);
             }
             mh$.invokeExact(x0);
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class PyDict_Size {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            CApi.C_LONG,
+            CApi.C_POINTER
+        );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("PyDict_Size");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * Py_ssize_t PyDict_Size(PyObject *mp)
+     * }
+     */
+    public static FunctionDescriptor PyDict_Size$descriptor() {
+        return PyDict_Size.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * Py_ssize_t PyDict_Size(PyObject *mp)
+     * }
+     */
+    public static MethodHandle PyDict_Size$handle() {
+        return PyDict_Size.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * Py_ssize_t PyDict_Size(PyObject *mp)
+     * }
+     */
+    public static MemorySegment PyDict_Size$address() {
+        return PyDict_Size.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * Py_ssize_t PyDict_Size(PyObject *mp)
+     * }
+     */
+    public static long PyDict_Size(MemorySegment mp) {
+        var mh$ = PyDict_Size.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("PyDict_Size", mp);
+            }
+            return (long)mh$.invokeExact(mp);
         } catch (Error | RuntimeException ex) {
            throw ex;
         } catch (Throwable ex$) {

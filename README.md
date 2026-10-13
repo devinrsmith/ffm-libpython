@@ -123,11 +123,12 @@ jextract/stable.symbols           C symbols to bind from the Stable ABI
 jextract/cpython.symbols          ...and from CPython's version-specific API
 src/main/jextract/                generated bindings (committed, do not edit)
   .../capi/stable/                  CApi: Stable ABI, plus <dlfcn.h>
-  .../capi/cpython/                 CPython: sub-interpreter creation
+  .../capi/cpython/                 CPython: sub-interpreter creation, PyInterpreterState_Main
 src/main/java/                    module com.example.ffm.python
   com/example/ffm/python/
     EmbeddedPython.java           the main interpreter: start / exec / close
     SubInterpreter.java           an isolated sub-interpreter with its own GIL
+    InterpreterInfo.java          PyInterpreterState_Get*() diagnostics, per interpreter
     PythonCode.java               runs source in the current interpreter
     LibPython.java                finds, loads and checks libpython at runtime
     PythonVersion.java            Py_Version / PY_VERSION_HEX, unpacked
@@ -178,8 +179,9 @@ instead, for example `Py_DecRef` for `Py_DECREF`.
 
 **`jextractCPython`** reads `jextract/cpython.symbols` and generates
 `com.example.ffm.python.capi.cpython.CPython`. This is the exception:
-`<Python.h>` without `Py_LIMITED_API`, for the one thing the Stable ABI lacks,
-[sub-interpreters with their own GIL](#sub-interpreters). These bindings are
+`<Python.h>` without `Py_LIMITED_API`, for what the Stable ABI lacks:
+[sub-interpreters with their own GIL](#sub-interpreters), and
+`PyInterpreterState_Main()` to identify the main interpreter. These bindings are
 tied to the 3.12 headers, so they're kept to symbols whose declarations and
 struct layouts are unchanged in every supported version: `PyInterpreterConfig`
 and `PyStatus` are identical from 3.12 through 3.15. A future Python that
@@ -222,6 +224,7 @@ Java: starting embedded Python
 Java: embedding /nix/store/…-python3-3.15.0/lib/libpython3.15.so.1.0
 Java: as /home/me/.venv/bin/python
 Java: Py_Version = 0x030F00F0 = 3.15.0 (final)
+Java: interpreter 0 (main) at 0x7fffc5337c08, thread state 1, interpreter dict 0 entries
 Java: Python configuration:
   Py_GetProgramName()     = /home/me/.venv/bin/python
   Py_GetProgramFullPath() = /home/me/.venv/bin/python
@@ -236,8 +239,11 @@ Java: Python configuration:
 Hello from Python 3.15.0, embedded in Java via FFM!
 sys.prefix = /home/me/.venv
 Java: running 3 sub-interpreters on 3 threads
+Java: [sub-interpreter 0] interpreter 1 at 0x7fffcc00f8d8, thread state 1, interpreter dict 0 entries
 [sub-interpreter 0] own sys module at 0x7fffc46c2750, native thread 37162
+Java: [sub-interpreter 2] interpreter 2 at 0x7fffd0001af0, thread state 1, interpreter dict 0 entries
 [sub-interpreter 2] own sys module at 0x7fffc44be750, native thread 37164
+Java: [sub-interpreter 1] interpreter 3 at 0x7fffc8001990, thread state 1, interpreter dict 0 entries
 [sub-interpreter 1] own sys module at 0x7fffc42ba750, native thread 37163
 Java: Python finalized
 ```
@@ -287,6 +293,23 @@ try (EmbeddedPython python = EmbeddedPython.start()) {
     }
 }
 ```
+
+**Diagnostics.** `interpreterInfo()` on either `EmbeddedPython` or
+`SubInterpreter` returns an `InterpreterInfo` record. It's read while attached
+to that interpreter, from the `PyInterpreterState_Get*()` family:
+
+| Component       | From                                                                         |
+|-----------------|------------------------------------------------------------------------------|
+| `id`            | `PyInterpreterState_GetID()`: `0` for the main interpreter, never reused     |
+| `main`          | `PyInterpreterState_Get() == PyInterpreterState_Main()`                      |
+| `stateAddress`  | `PyInterpreterState_Get()`, the `PyInterpreterState *`                       |
+| `threadStateId` | `PyThreadState_GetID()`, numbered *per interpreter* (so usually `1`)         |
+| `dictSize`      | entries in `PyInterpreterState_GetDict()`, where extensions keep per-interpreter data (`PyDict_Size`) |
+
+IDs are assigned in creation order, which need not match the order your
+threads start in. `PyInterpreterState_Head`/`Next`, which list every live
+interpreter, are left out: CPython documents them as unsafe while other
+threads create or end interpreters.
 
 The rules, all enforced:
 

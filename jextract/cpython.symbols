@@ -11,3 +11,6 @@
 --include-constant PyInterpreterConfig_OWN_GIL
 --include-struct PyStatus
 --include-function PyStatus_Exception
+
+# Interpreter diagnostics: which interpreter is the main one (unchanged 3.12-3.15).
+--include-function PyInterpreterState_Main
