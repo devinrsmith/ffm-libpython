@@ -53,8 +53,7 @@ tasks.withType<JextractTask>().configureEach {
 // The Stable ABI at the 3.12 level: what every libpython >= 3.12 provides.
 tasks.register<JextractTask>("jextractStable312") {
     description = "Generates the Stable ABI bindings at the 3.12 level (capi.stable312)."
-    // dlfcn.h supplies dlopen, used to make libpython's symbols global.
-    headers = listOf("<Python.h>", "<dlfcn.h>")
+    headers = listOf("<Python.h>")
     // Restrict Python.h to the Stable ABI as of 3.12.
     defines.add("Py_LIMITED_API=0x030C0000")
     symbolsFile = layout.projectDirectory.file("jextract/stable312.symbols")
@@ -73,6 +72,16 @@ tasks.register<JextractTask>("jextractStable313") {
     targetPackage = "com.example.ffm.python.capi.stable313"
     headerClassName = "Stable313"
     includeDirs.add(pythonIncludeDir("3.13"))
+}
+
+// The C library's dynamic linker interface: dlopen, used to make libpython's
+// symbols global. Not Python, so no Python headers (and no version) involved.
+tasks.register<JextractTask>("jextractDlfcn") {
+    description = "Generates the <dlfcn.h> bindings (dlfcn)."
+    headers = listOf("<dlfcn.h>")
+    symbolsFile = layout.projectDirectory.file("jextract/dlfcn.symbols")
+    targetPackage = "com.example.ffm.python.dlfcn"
+    headerClassName = "Dlfcn"
 }
 
 // CPython's version-specific API, for what the Stable ABI lacks, as declared

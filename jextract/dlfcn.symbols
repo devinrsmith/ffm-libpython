@@ -1,0 +1,11 @@
+# jextract argument file: the C library's dynamic linker interface, <dlfcn.h>.
+# Generates com.example.ffm.python.dlfcn (task jextractDlfcn). Nothing here is
+# Python: LibPython uses dlopen to make an already-loaded libpython's symbols
+# globally visible (see README, "Extension modules"). The functions resolve from
+# the C library, through the linker's default lookup.
+
+--include-function dlopen
+--include-function dlerror
+--include-constant RTLD_NOW
+--include-constant RTLD_GLOBAL
+--include-constant RTLD_NOLOAD

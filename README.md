@@ -121,11 +121,13 @@ flake.nix                         Nix dev shell (JDK 25, jextract, Python 3.12, 
 gradle/libs.versions.toml         version catalog
 jextract/stable312.symbols        C symbols to bind from the Stable ABI (3.12 level)
 jextract/stable313.symbols        ...the Stable ABI's 3.13 additions
+jextract/dlfcn.symbols            C symbols to bind from <dlfcn.h> (libc, not Python)
 jextract/cpython312.symbols       ...and from CPython 3.12's version-specific API
 src/main/jextract/                generated bindings (committed, do not edit)
-  .../capi/stable312/               Stable312: Stable ABI at the 3.12 level, plus <dlfcn.h>
+  .../capi/stable312/               Stable312: Stable ABI at the 3.12 level
   .../capi/stable313/               Stable313: what the Stable ABI added in 3.13
   .../capi/py312/                   CPython312: sub-interpreter creation, PyInterpreterState_Main
+  .../dlfcn/                        Dlfcn: dlopen, dlerror, RTLD_*
 src/main/java/                    module com.example.ffm.python
   com/example/ffm/python/
     EmbeddedPython.java           the main interpreter: start / exec / close
@@ -156,9 +158,9 @@ bindings can be reviewed in diffs. To regenerate them:
 ./gradlew jextract
 ```
 
-`./gradlew jextract` runs three tasks. Each generates only the symbols listed
-in its jextract argument file, into its own package, from the headers of
-exactly the Python version in its name. The headers come from the interpreters
+`./gradlew jextract` runs four tasks. Each generates only the symbols listed
+in its jextract argument file, into its own package. The three Python ones each
+use the headers of exactly the Python version in their name. The headers come from the interpreters
 in the Gradle properties `jextract.python312` and `jextract.python313`
 (`python3.12` and `python3.13` by default, in `gradle.properties`). Each task
 fails unless it gets that version, so no binding can be silently regenerated
@@ -171,17 +173,14 @@ afterwards.
 | `jextractStable312` | `stable312.symbols` | `capi.stable312.Stable312` | 3.12, `Py_LIMITED_API=0x030C0000` |
 | `jextractStable313` | `stable313.symbols` | `capi.stable313.Stable313` | 3.13, `Py_LIMITED_API=0x030D0000` |
 | `jextractCPython312` | `cpython312.symbols` | `capi.py312.CPython312` | 3.12, full API |
+| `jextractDlfcn` | `dlfcn.symbols` | `dlfcn.Dlfcn` | the C library's `<dlfcn.h>` |
 
-**`jextractStable312`** covers almost everything. It extracts two headers:
-
-- `<Python.h>`, with `Py_LIMITED_API=0x030C0000` defined. CPython then exposes
-  only the Stable ABI as of 3.12, the functions it promises to keep in every
-  later 3.x. So a symbol jextract can't find is one that newer Pythons
-  wouldn't guarantee anyway. For example, `PyRun_SimpleString` isn't in the
-  Stable ABI, so `EmbeddedPython.exec` uses `Py_CompileString` and
-  `PyEval_EvalCode` instead.
-- `<dlfcn.h>`: `dlopen` and `RTLD_*`. See
-  [Extension modules](#extension-modules).
+**`jextractStable312`** covers almost everything. It extracts `<Python.h>` with
+`Py_LIMITED_API=0x030C0000` defined, so CPython exposes only the Stable ABI as
+of 3.12: the functions it promises to keep in every later 3.x. So a symbol
+jextract can't find is one that newer Pythons wouldn't guarantee anyway. For
+example, `PyRun_SimpleString` isn't in the Stable ABI, so `EmbeddedPython.exec`
+uses `Py_CompileString` and `PyEval_EvalCode` instead.
 
 To list everything on offer:
 
@@ -210,6 +209,12 @@ which is what shows at call sites, since they use static imports).
 **`jextractStable313`** binds what the Stable ABI added in 3.13, currently
 just `PyImport_AddModuleRef`. See [Switching on the version at
 runtime](#switching-on-the-version-at-runtime).
+
+**`jextractDlfcn`** binds `dlopen`, `dlerror` and `RTLD_*` from the C library's
+`<dlfcn.h>`. `LibPython` uses them to make libpython's symbols global (see
+[Extension modules](#extension-modules)). It involves no Python headers, so it
+has no Python version to check. The functions come from the C library through
+the linker's default lookup.
 
 No `--library` is given to jextract. The generated code looks symbols up only
 through `SymbolLookup.loaderLookup()`, which finds whatever library
