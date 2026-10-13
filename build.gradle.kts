@@ -70,7 +70,7 @@ tasks.run {
 // The tests embed a virtual environment made from the selected interpreter
 // (-Ppython.executable, default python3), to check that it is picked up.
 val testVenv = layout.buildDirectory.dir("test-venv")
-val createTestVenv by tasks.registering(Exec::class) {
+val createTestVenv = tasks.register<Exec>("createTestVenv") {
     description = "Creates the virtual environment the tests embed."
     val python = providers.executableOnPath(providers.gradleProperty("python.executable").orElse("python3"))
     inputs.property("python", python)
