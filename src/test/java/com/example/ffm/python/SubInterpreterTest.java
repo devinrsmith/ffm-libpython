@@ -128,6 +128,16 @@ class SubInterpreterTest {
     }
 
     @Test
+    void holdsMainWhileRunning() {
+        for (Supplier<SubInterpreter> kind : List.<Supplier<SubInterpreter>>of(python::newSubInterpreter, this::isolated)) {
+            try (SubInterpreter sub = kind.get()) {
+                assertDoesNotThrow(() -> sub.exec(EmbeddedPythonTest.MAIN_SURVIVES_ITS_REMOVAL));
+                assertDoesNotThrow(() -> sub.exec("assert 'module' not in globals()"));
+            }
+        }
+    }
+
+    @Test
     void reportsPythonErrors() {
         try (SubInterpreter sub = python.newSubInterpreter()) {
             assertThrows(PythonException.class, () -> sub.exec("raise ValueError('expected')"));

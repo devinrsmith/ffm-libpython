@@ -60,6 +60,65 @@ public class CApi extends CApi$shared {
         return RTLD_GLOBAL;
     }
 
+    private static class Py_IncRef {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.ofVoid(
+            CApi.C_POINTER
+        );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("Py_IncRef");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * void Py_IncRef(PyObject *)
+     * }
+     */
+    public static FunctionDescriptor Py_IncRef$descriptor() {
+        return Py_IncRef.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * void Py_IncRef(PyObject *)
+     * }
+     */
+    public static MethodHandle Py_IncRef$handle() {
+        return Py_IncRef.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * void Py_IncRef(PyObject *)
+     * }
+     */
+    public static MemorySegment Py_IncRef$address() {
+        return Py_IncRef.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * void Py_IncRef(PyObject *)
+     * }
+     */
+    public static void Py_IncRef(MemorySegment x0) {
+        var mh$ = Py_IncRef.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("Py_IncRef", x0);
+            }
+            mh$.invokeExact(x0);
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
     private static class Py_DecRef {
         public static final FunctionDescriptor DESC = FunctionDescriptor.ofVoid(
             CApi.C_POINTER

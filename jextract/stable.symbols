@@ -36,6 +36,7 @@
 --include-constant Py_file_input
 --include-function PyEval_EvalCode
 --include-function PyErr_Print
+--include-function Py_IncRef
 --include-function Py_DecRef
 
 # <dlfcn.h>

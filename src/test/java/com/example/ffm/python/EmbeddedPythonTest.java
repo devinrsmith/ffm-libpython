@@ -46,6 +46,11 @@ class EmbeddedPythonTest {
             assertTrue(python.version().compareTo(PythonVersion.of(3, 12, 0)) >= 0, python.version()::toString);
             assertNotNull(configuration.get("Py_GetPlatform"));
             assertDoesNotThrow(() -> python.exec("assert 6 * 7 == 42"));
+            // exec holds a strong reference to __main__ while the code runs, so
+            // removing it from sys.modules does not free it mid-run...
+            assertDoesNotThrow(() -> python.exec(MAIN_SURVIVES_ITS_REMOVAL));
+            // ...and the next exec gets a fresh __main__.
+            assertDoesNotThrow(() -> python.exec("assert 'module' not in globals()"));
             // C extension modules need libpython's symbols to be globally visible.
             assertDoesNotThrow(() -> python.exec("import math, json, ctypes, sqlite3"));
             assertThrows(PythonException.class, () -> python.exec("raise ValueError('expected')"));
@@ -57,6 +62,15 @@ class EmbeddedPythonTest {
         assertFalse(EmbeddedPython.isInitialized());
         assertThrows(IllegalStateException.class, () -> python.exec("pass"));
     }
+
+    /** Removes __main__ from sys.modules, then checks it was not freed. */
+    static final String MAIN_SURVIVES_ITS_REMOVAL = """
+            import gc, sys, weakref
+            module = weakref.ref(sys.modules["__main__"])
+            del sys.modules["__main__"]
+            gc.collect()
+            assert module() is not None, "__main__ was freed while its code was running"
+            """;
 
     /** A Python string literal for {@code value}. */
     private static String pythonString(String value) {

@@ -404,10 +404,22 @@ own GIL, running code never contends for the main GIL.
   to the native stdout and stderr. When stdout isn't a terminal, Python buffers
   that output until finalization, so it can interleave with Java's output in
   unexpected ways.
-- **Memory.** Java strings are copied into native memory as NUL-terminated
-  UTF-8 in a confined `Arena`, which frees them when the call returns. Python
-  objects returned as new references (the compiled code and its result) are
-  released with `Py_DecRef`.
+- **Memory.** Two kinds of native memory are in play, managed differently:
+  - **Memory we allocate** (C strings, `PyInterpreterConfig`, `PyStatus`,
+    out-parameters) lives in a confined `Arena` and is freed when the call
+    returns. None of it is refcounted, and CPython copies what it keeps. The
+    one exception is the `Py_SetProgramName` string, which must outlive the
+    interpreter and so lives in `Arena.global()`.
+  - **Python objects** are refcounted. New references (the compiled code and
+    its result) are released with `Py_DecRef`. Borrowed references are never
+    released, but are only held while their owner is guaranteed to keep them
+    alive. `__main__` is the exception that needed care: it's borrowed from
+    `sys.modules`, which the code being run can change (`del
+    sys.modules["__main__"]` frees it mid-run), so `exec` takes a strong
+    reference with `Py_IncRef` for the duration. That's what CPython's
+    `PyImport_AddModuleRef` (3.13+) does, and what `PyRun_SimpleString`
+    switched to in 3.13. A test removes `__main__` mid-run and checks, via a
+    weak reference, that it isn't freed. It fails without the fix.
 - **`SystemExit`.** As with `PyRun_SimpleString`, an uncaught `SystemExit` in
   `exec` reaches `PyErr_Print`, which exits the process, JVM included.
 
