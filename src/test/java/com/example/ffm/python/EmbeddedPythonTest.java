@@ -100,7 +100,7 @@ class EmbeddedPythonTest {
             """;
 
     /** A Python string literal for {@code value}. */
-    private static String pythonString(String value) {
+    static String pythonString(String value) {
         return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'";
     }
 }

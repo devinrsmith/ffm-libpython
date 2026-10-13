@@ -149,6 +149,7 @@ src/main/java/                    module com.example.ffm.python
     Py.java                       shared plumbing: incRef / decRef, error reporting
     ApiLevel.java                 the loaded libpython's version, for runtime dispatch
     HeaderInlines.java            header inlines later exported, with their fallbacks
+    ModuleFinder.java             find_spec without importing: for findExtensionModule
     LibPython.java                finds, loads and checks libpython at runtime
     PythonVersion.java            Py_Version / PY_VERSION_HEX, unpacked
     Main.java                     the demo
@@ -350,6 +351,53 @@ between the sources.** The same 3.12 venv as above reports:
 
 The test asserts both differences per version. Forcing the old functions on
 3.14 makes it fail.
+
+## Loading an extension module from Java first
+
+Some Python extension modules must be loaded by the JVM before Python imports
+them. For example, a module that also implements JNI native methods must be
+`System.load`ed, so those methods bind to the right class loader.
+`EmbeddedPython.findExtensionModule(name)` finds the module's file, like
+`importlib.util.find_spec(name).origin`, but **without importing anything**:
+
+```java
+try (EmbeddedPython python = EmbeddedPython.start()) {
+    Path so = python.findExtensionModule("pkg._native").orElseThrow();
+    System.load(so.toString());
+    python.exec("import pkg");  // Python's import reuses the library Java loaded
+}
+```
+
+- **Why not just call `find_spec`:** for a dotted name, `find_spec` *imports
+  the parent packages*, running their `__init__.py`, which typically imports
+  the very module you're trying to load first. Instead, `ModuleFinder`
+  resolves `a.b.c` one level at a time. At each level it asks every finder on
+  `sys.meta_path`, as `importlib` does (`finder.find_spec(name, path, target)`),
+  passing the previous level's `submodule_search_locations`. Using
+  `sys.meta_path` rather than only `PathFinder` also covers custom finders,
+  such as those editable installs register.
+- **Python reuses Java's library:** Python's import `dlopen`s the same file,
+  and glibc returns the already-loaded library (matching by device and inode),
+  so the module's native state is shared. The test checks that the file is
+  mapped only once.
+- **Results:** empty if no finder finds the module. `IllegalArgumentException`
+  if the module is found but isn't an extension module (`json` →
+  `SourceFileLoader`, `sys` → `BuiltinImporter`).
+- **Requirements:**
+  - **libpython must already be global.** At `System.load` time, the
+    extension's `Py*` symbols must resolve, and they do because `LibPython`
+    re-opens libpython with `RTLD_GLOBAL` at startup.
+  - **One class loader per library.** Java ties a native library to one class
+    loader; loading the same file from another throws `UnsatisfiedLinkError`.
+  - **Timing.** Call it after `start()` but before any code imports the
+    module.
+
+Built on Stable ABI functions, typed as usual: `Module.importModule`,
+`getAttr`, `hasAttr`, `call` (`PyObject_Vectorcall`), `isInstance`, `isNone`,
+`Str.of`, and `Any.none()`. `None` is exported data (`_Py_NoneStruct`), so it's
+found by symbol lookup like the built-in types. While a finder runs, it's held
+with its own reference, since it's borrowed from `sys.meta_path` and the
+finder's own code could change that list.
 
 ## Sub-interpreters
 

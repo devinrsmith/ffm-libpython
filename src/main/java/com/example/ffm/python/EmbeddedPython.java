@@ -7,6 +7,7 @@ import static com.example.ffm.python.capi.stable312.Stable312.Py_SetProgramName;
 
 import com.example.ffm.python.internal.Configuration;
 import com.example.ffm.python.internal.GilState;
+import com.example.ffm.python.internal.ModuleFinder;
 import com.example.ffm.python.internal.Py312;
 import com.example.ffm.python.internal.PyThreadState;
 import com.example.ffm.python.internal.WideChars;
@@ -135,6 +136,27 @@ public final class EmbeddedPython implements AutoCloseable {
     public InterpreterInfo interpreterInfo() {
         checkUsable();
         return threadState.callAttached(InterpreterInfo::current);
+    }
+
+    /**
+     * Finds the file of extension module {@code name} (e.g. {@code "pkg._native"}),
+     * like {@code importlib.util.find_spec(name).origin}, but without importing
+     * anything: not even the parent packages of a dotted name, which {@code find_spec}
+     * would import. So a library can be loaded first, e.g. with {@link System#load}
+     * to bind its JNI native methods to this class loader, before Python imports it;
+     * Python's import then reuses the already-loaded library.
+     *
+     * <p>Searches like {@code importlib}: the finders on {@code sys.meta_path}, with
+     * this interpreter's {@code sys.path}.
+     *
+     * @return the file, or empty if no finder finds the module
+     * @throws IllegalArgumentException if {@code name} is not a module name, or names
+     *     a module that is not an extension module (pure Python, built in, ...)
+     * @throws PythonException if a finder raised an exception
+     */
+    public Optional<Path> findExtensionModule(String name) {
+        checkUsable();
+        return threadState.callAttached(() -> ModuleFinder.findExtensionModule(name));
     }
 
     /**

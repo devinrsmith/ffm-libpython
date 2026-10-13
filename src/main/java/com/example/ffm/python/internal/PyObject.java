@@ -6,11 +6,19 @@ import static com.example.ffm.python.capi.stable312.Stable312.PyList_Size;
 import static com.example.ffm.python.capi.stable312.Stable312.PyType_GetFlags;
 import static com.example.ffm.python.capi.stable312.Stable312.PyUnicode_AsUTF8AndSize;
 import static com.example.ffm.python.capi.stable312.Stable312.PyEval_EvalCode;
+import static com.example.ffm.python.capi.stable312.Stable312.PyImport_ImportModule;
+import static com.example.ffm.python.capi.stable312.Stable312.PyObject_GetAttrString;
+import static com.example.ffm.python.capi.stable312.Stable312.PyObject_HasAttrString;
+import static com.example.ffm.python.capi.stable312.Stable312.PyObject_IsInstance;
+import static com.example.ffm.python.capi.stable312.Stable312.PyObject_Vectorcall;
+import static com.example.ffm.python.capi.stable312.Stable312.PyUnicode_FromString;
+import static com.example.ffm.python.capi.stable312.Stable312.Py_IsNone;
 import static com.example.ffm.python.capi.stable312.Stable312.PyImport_AddModule;
 import static com.example.ffm.python.capi.stable312.Stable312.PyModule_GetDict;
 import static com.example.ffm.python.capi.stable312.Stable312.Py_CompileString;
 import static com.example.ffm.python.capi.stable312.Stable312.Py_file_input;
 import static com.example.ffm.python.capi.stable313.Stable313.PyImport_AddModuleRef;
+import static java.lang.foreign.ValueLayout.ADDRESS;
 import static java.lang.foreign.ValueLayout.JAVA_BYTE;
 import static java.lang.foreign.ValueLayout.JAVA_LONG;
 
@@ -58,10 +66,91 @@ public sealed interface PyObject
         return HeaderInlines.pyIsType(this, type);
     }
 
+    /** {@code Py_IsNone}: whether this is {@code None}. */
+    default boolean isNone() {
+        return Py_IsNone(segment()) != 0;
+    }
+
+    /**
+     * {@code PyObject_IsInstance}: {@code isinstance(this, cls)}. May run Python code
+     * ({@code __instancecheck__}).
+     *
+     * @throws PythonException if it raised an exception
+     */
+    default boolean isInstance(PyObject cls) {
+        int result = PyObject_IsInstance(segment(), cls.segment());
+        if (result < 0) {
+            throw Py.errorPrinted("isinstance failed");
+        }
+        return result != 0;
+    }
+
+    /**
+     * {@code PyObject_GetAttrString}: {@code getattr(this, name)}. A <b>new</b>
+     * reference. May run Python code (properties, {@code __getattr__}).
+     *
+     * @throws PythonException if it raised an exception, e.g. AttributeError
+     */
+    default NewReference<Any> getAttr(String name) {
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment value = PyObject_GetAttrString(segment(), arena.allocateFrom(name));
+            if (value.equals(MemorySegment.NULL)) {
+                throw Py.errorPrinted("getattr(..., \"" + name + "\") failed");
+            }
+            return NewReference.adopt(new Any(value));
+        }
+    }
+
+    /**
+     * {@code PyObject_HasAttrString}: {@code hasattr(this, name)}. Any exception
+     * raised while looking it up counts as "no" (and is cleared).
+     */
+    default boolean hasAttr(String name) {
+        try (Arena arena = Arena.ofConfined()) {
+            return PyObject_HasAttrString(segment(), arena.allocateFrom(name)) != 0;
+        }
+    }
+
+    /**
+     * {@code PyObject_Vectorcall}: {@code this(*args)}, with positional arguments
+     * only, which it borrows. Returns the result, a <b>new</b> reference. Runs Python
+     * code.
+     *
+     * @throws PythonException if the call raised an exception
+     */
+    default NewReference<Any> call(PyObject... args) {
+        try (Arena arena = Arena.ofConfined()) {
+            // A C array of PyObject *: borrowed for the duration of the call.
+            MemorySegment argv = arena.allocate(ADDRESS, Math.max(args.length, 1));
+            for (int i = 0; i < args.length; i++) {
+                argv.setAtIndex(ADDRESS, i, args[i].segment());
+            }
+            MemorySegment result = PyObject_Vectorcall(segment(), argv, args.length, MemorySegment.NULL);
+            if (result.equals(MemorySegment.NULL)) {
+                throw Py.errorPrinted("call failed");
+            }
+            return NewReference.adopt(new Any(result));
+        }
+    }
+
     /** An object of no particular type, e.g. the result of running code. */
     record Any(MemorySegment segment) implements PyObject {
         public Any {
             requireObject(segment);
+        }
+
+        /**
+         * {@code None} ({@code Py_None}): a <b>borrowed</b> reference to a static
+         * object. In the Limited API, {@code Py_None} is a macro for
+         * {@code &_Py_NoneStruct}, exported Stable ABI data since 3.2 (ABI only), so
+         * its address is looked up once, like the built-in types.
+         */
+        public static Any none() {
+            return Constants.NONE;
+        }
+
+        private static final class Constants {
+            static final Any NONE = new Any(SymbolLookup.loaderLookup().findOrThrow("_Py_NoneStruct"));
         }
 
         /**
@@ -177,6 +266,22 @@ public sealed interface PyObject
         }
 
         /**
+         * {@code PyUnicode_FromString}: a new {@code str} from {@code value}. A
+         * <b>new</b> reference.
+         *
+         * @throws PythonException if CPython fails to create it
+         */
+        public static NewReference<Str> of(String value) {
+            try (Arena arena = Arena.ofConfined()) {
+                MemorySegment str = PyUnicode_FromString(arena.allocateFrom(value));
+                if (str.equals(MemorySegment.NULL)) {
+                    throw Py.errorPrinted("PyUnicode_FromString failed");
+                }
+                return NewReference.adopt(new Str(str));
+            }
+        }
+
+        /**
          * The string's value, via {@code PyUnicode_AsUTF8AndSize}. CPython owns and
          * caches the UTF-8 buffer in the object; it is copied out at once.
          *
@@ -233,6 +338,23 @@ public sealed interface PyObject
             }
         }
 
+        /**
+         * {@code PyImport_ImportModule}: {@code import name}, returning the module
+         * (for a dotted name, the named submodule). A <b>new</b> reference. Runs
+         * Python code.
+         *
+         * @throws PythonException if the import failed
+         */
+        public static NewReference<Module> importModule(String name) {
+            try (Arena arena = Arena.ofConfined()) {
+                MemorySegment module = PyImport_ImportModule(arena.allocateFrom(name));
+                if (module.equals(MemorySegment.NULL)) {
+                    throw Py.errorPrinted("import " + name + " failed");
+                }
+                return NewReference.adopt(new Module(module));
+            }
+        }
+
         /** {@code PyModule_GetDict}: the module's namespace. <b>Borrowed</b> from the module. */
         public Dict dict() {
             return new Dict(PyModule_GetDict(segment));
@@ -261,6 +383,14 @@ public sealed interface PyObject
         /** {@code &PyDict_Type}: {@code dict}. */
         public static Type dict() {
             return Builtins.DICT;
+        }
+
+        /**
+         * {@code &PyType_Type}: {@code type}, the type of classes. (Not {@code type()},
+         * which every object has: its own type.)
+         */
+        public static Type typeType() {
+            return Builtins.TYPE;
         }
 
         /** {@code &PyModule_Type}: {@code module}. */
@@ -295,6 +425,7 @@ public sealed interface PyObject
             static final Type LIST = lookUp("PyList_Type");
             static final Type DICT = lookUp("PyDict_Type");
             static final Type MODULE = lookUp("PyModule_Type");
+            static final Type TYPE = lookUp("PyType_Type");
 
             private static Type lookUp(String symbol) {
                 return new Type(SymbolLookup.loaderLookup().findOrThrow(symbol));

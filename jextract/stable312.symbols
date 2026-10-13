@@ -59,6 +59,15 @@
 --include-function PyThreadState_GetInterpreter
 --include-function PyDict_Size
 
+# Imports, attributes and calls (e.g. walking sys.meta_path like importlib).
+--include-function PyImport_ImportModule
+--include-function PyObject_GetAttrString
+--include-function PyObject_HasAttrString
+--include-function PyObject_Vectorcall
+--include-function PyObject_IsInstance
+--include-function PyUnicode_FromString
+--include-function Py_IsNone
+
 # Reading str and list objects (e.g. PyConfig_Get's results).
 # (Type objects themselves, e.g. PyUnicode_Type, are Stable ABI data whose type
 # is incomplete in the Limited API; jextract skips them with a warning
