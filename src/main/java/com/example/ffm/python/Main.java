@@ -41,7 +41,11 @@ public final class Main {
         System.out.println("Java: Python finalized");
     }
 
-    /** Runs isolated sub-interpreters, each on its own thread and with its own GIL. */
+    /**
+     * Runs sub-interpreters, each on its own thread: the first from the Stable ABI's
+     * {@code Py_NewInterpreter()} (sharing the main GIL), the rest from an explicit
+     * isolated configuration (each with its own GIL).
+     */
     private static void runSubInterpreters(EmbeddedPython python, int count) throws Exception {
         System.out.println("Java: running " + count + " sub-interpreters on " + count + " threads");
         System.out.flush();
@@ -50,8 +54,10 @@ public final class Main {
             for (int i = 0; i < count; i++) {
                 int n = i;
                 results.add(executor.submit(() -> {
-                    try (SubInterpreter sub = python.newSubInterpreter()) {
-                        System.out.println("Java: [sub-interpreter " + n + "] " + sub.interpreterInfo());
+                    try (SubInterpreter sub = n == 0
+                            ? python.newSubInterpreter()
+                            : python.newSubInterpreterFromConfig(InterpreterConfig.isolated())) {
+                        System.out.println("Java: [sub-interpreter " + n + ", " + sub.config().gil() + " GIL] " + sub.interpreterInfo());
                         System.out.flush();
                         sub.exec("""
                                 import sys, threading

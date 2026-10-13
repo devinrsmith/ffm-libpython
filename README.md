@@ -127,7 +127,8 @@ src/main/jextract/                generated bindings (committed, do not edit)
 src/main/java/                    module com.example.ffm.python
   com/example/ffm/python/
     EmbeddedPython.java           the main interpreter: start / exec / close
-    SubInterpreter.java           an isolated sub-interpreter with its own GIL
+    SubInterpreter.java           a sub-interpreter (shared or own GIL)
+    InterpreterConfig.java        PyInterpreterConfig, validated
     InterpreterInfo.java          PyInterpreterState_Get*() diagnostics, per interpreter
     PythonCode.java               runs source in the current interpreter
     LibPython.java                finds, loads and checks libpython at runtime
@@ -180,7 +181,7 @@ instead, for example `Py_DecRef` for `Py_DECREF`.
 **`jextractCPython312`** reads `jextract/cpython312.symbols` and generates
 `com.example.ffm.python.capi.py312.CPython312`. This is the exception:
 `<Python.h>` without `Py_LIMITED_API`, for what the Stable ABI lacks:
-[sub-interpreters with their own GIL](#sub-interpreters), and
+[sub-interpreters with an explicit configuration](#sub-interpreters), and
 `PyInterpreterState_Main()` to identify the main interpreter. Nothing here is
 covered by CPython's ABI promises, so the version is in every name: the
 symbols file, the task, the package (`py312`) and the class (`CPython312`,
@@ -249,12 +250,12 @@ Java: Python configuration:
 Hello from Python 3.15.0, embedded in Java via FFM!
 sys.prefix = /home/me/.venv
 Java: running 3 sub-interpreters on 3 threads
-Java: [sub-interpreter 0] interpreter 1 at 0x7fffcc00f8d8, thread state 1, interpreter dict 0 entries
-[sub-interpreter 0] own sys module at 0x7fffc46c2750, native thread 37162
-Java: [sub-interpreter 2] interpreter 2 at 0x7fffd0001af0, thread state 1, interpreter dict 0 entries
-[sub-interpreter 2] own sys module at 0x7fffc44be750, native thread 37164
-Java: [sub-interpreter 1] interpreter 3 at 0x7fffc8001990, thread state 1, interpreter dict 0 entries
-[sub-interpreter 1] own sys module at 0x7fffc42ba750, native thread 37163
+Java: [sub-interpreter 0, SHARED GIL] interpreter 1 at 0x7fffc8003220, thread state 1, interpreter dict 0 entries
+[sub-interpreter 0] own sys module at 0x7fffc49da520, native thread 54253
+Java: [sub-interpreter 1, OWN GIL] interpreter 2 at 0x7fffd000c8e0, thread state 1, interpreter dict 0 entries
+[sub-interpreter 1] own sys module at 0x7fffc44be750, native thread 54254
+Java: [sub-interpreter 2, OWN GIL] interpreter 3 at 0x7fffec7183b0, thread state 1, interpreter dict 0 entries
+[sub-interpreter 2] own sys module at 0x7fffc42ba750, native thread 54255
 Java: Python finalized
 ```
 
@@ -288,21 +289,53 @@ those (or `sys.prefix`) to tell whether a venv is in effect.
 
 ## Sub-interpreters
 
-`EmbeddedPython.newSubInterpreter()` creates an isolated sub-interpreter
-with **its own GIL**, using `Py_NewInterpreterFromConfig` with CPython's
-isolated defaults. Each one has its own modules, `sys` and `__main__`. Since
-they don't share a GIL, sub-interpreters on different Java threads run Python
-code in parallel. The tests check this by timing: two CPU-bound loops on two
-threads take about as long as one.
+There are two ways to create a sub-interpreter. Each sub-interpreter has its
+own modules, `sys` and `__main__`. The difference is whether it shares the
+main interpreter's GIL:
+
+| | `newSubInterpreter()` | `newSubInterpreterFromConfig(config)` |
+|---|---|---|
+| C API | `Py_NewInterpreter()`, **Stable ABI** | `Py_NewInterpreterFromConfig()`, version-specific (`capi.py312`) |
+| Configuration | always `InterpreterConfig.legacy()` | any valid `InterpreterConfig` |
+| GIL | **shared** with the main interpreter: threads take turns | with `isolated()`: **its own**, so it runs in parallel |
+| Allows | everything: single-phase extensions, fork, exec, daemon threads | what the config allows; `isolated()` forbids all four |
 
 ```java
 try (EmbeddedPython python = EmbeddedPython.start()) {
     // On any platform thread:
-    try (SubInterpreter sub = python.newSubInterpreter()) {
-        sub.exec("import math; print(math.pi)");
+    try (SubInterpreter shared = python.newSubInterpreter();
+         SubInterpreter parallel = python.newSubInterpreterFromConfig(InterpreterConfig.isolated());
+         SubInterpreter custom = python.newSubInterpreterFromConfig(
+                 InterpreterConfig.isolated().withAllowThreads(false))) {
+        parallel.exec("import math; print(math.pi)");
     }
 }
 ```
+
+The tests confirm the GIL difference by timing two CPU-bound loops started
+together on two threads. With their own GILs they take about as long as one
+loop (about 1.0×). Sharing the GIL, they take twice as long (about 2.0–2.2×).
+
+**`InterpreterConfig`** mirrors CPython's `PyInterpreterConfig` field for
+field: `useMainObmalloc`, `allowFork`, `allowExec`, `allowThreads`,
+`allowDaemonThreads`, `checkMultiInterpExtensions` and `gil` (`SHARED` or
+`OWN`). Start from `isolated()` (CPython's `_PyInterpreterConfig_INIT`) or
+`legacy()` (`_PyInterpreterConfig_LEGACY_INIT`), and adjust with the `with*`
+methods. Its constructor rejects, with an `IllegalArgumentException`, the two
+combinations CPython doesn't support:
+
+- **Its own obmalloc without `checkMultiInterpExtensions`.** CPython rejects
+  this itself, but on 3.12 the rejection leaves the calling thread's GIL
+  silently released, and the next GIL operation aborts the process. On
+  3.13–3.15 it fails cleanly. I found this by probing every combination
+  against each version. So the Java side must never let CPython see a
+  configuration it would reject.
+- **Its own GIL with the main obmalloc.** CPython's documentation forbids this,
+  since two GILs sharing one allocator would race, but 3.13–3.15 accept it
+  without complaint.
+
+So order matters when adjusting: `isolated().withGil(SHARED).withUseMainObmalloc(true)`
+is valid, while `isolated().withUseMainObmalloc(true)` is not.
 
 **Diagnostics.** `interpreterInfo()` on either `EmbeddedPython` or
 `SubInterpreter` returns an `InterpreterInfo` record. It's read while attached
@@ -329,18 +362,17 @@ The rules, all enforced:
 - **Close sub-interpreters before the main interpreter.**
   `EmbeddedPython.close()` refuses while any are open, because CPython 3.12
   can't finalize around live sub-interpreters.
-- **Some extension modules can't be imported.** Isolated interpreters accept
+- **Some extension modules can't be imported** with `checkMultiInterpExtensions`
+  (as in `isolated()`; legacy sub-interpreters import them all). Isolated interpreters accept
   only extension modules that support multi-phase initialization. That covers
   most of the stdlib (`math`, `json`, `zlib`, `_sqlite3`, `_ssl`, …). Every
   version refuses `readline` and `_curses`, and 3.12 also refuses `_ctypes`,
   `_decimal` and `_datetime`. A refused import is an ordinary `ImportError`,
   which `exec` throws as a `PythonException`.
-- Isolated interpreters also can't fork, exec, or start daemon threads.
-
 Creation briefly attaches the calling thread to the main interpreter with
-`PyGILState_Ensure`, as `Py_NewInterpreterFromConfig` requires, and detaches
-again before returning. `exec` attaches only the sub-interpreter's own thread
-state, so running code never contends for the main GIL.
+`PyGILState_Ensure`, as both C functions require, and detaches again before
+returning. `exec` attaches the sub-interpreter's own thread state. With its
+own GIL, running code never contends for the main GIL.
 
 ## Design notes
 

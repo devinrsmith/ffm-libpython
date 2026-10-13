@@ -1,6 +1,7 @@
 package com.example.ffm.python;
 
 import static com.example.ffm.python.capi.py312.CPython312.PyInterpreterConfig_OWN_GIL;
+import static com.example.ffm.python.capi.py312.CPython312.PyInterpreterConfig_SHARED_GIL;
 import static com.example.ffm.python.capi.py312.CPython312.PyStatus_Exception;
 import static com.example.ffm.python.capi.py312.CPython312.Py_NewInterpreterFromConfig;
 import static com.example.ffm.python.capi.stable.CApi.PyEval_RestoreThread;
@@ -21,6 +22,7 @@ import static com.example.ffm.python.capi.stable.CApi.Py_GetPythonHome;
 import static com.example.ffm.python.capi.stable.CApi.Py_GetVersion;
 import static com.example.ffm.python.capi.stable.CApi.Py_InitializeEx;
 import static com.example.ffm.python.capi.stable.CApi.Py_IsInitialized;
+import static com.example.ffm.python.capi.stable.CApi.Py_NewInterpreter;
 import static com.example.ffm.python.capi.stable.CApi.Py_SetProgramName;
 import static java.lang.foreign.ValueLayout.ADDRESS;
 
@@ -33,10 +35,12 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.SequencedMap;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 /**
  * An embedded CPython interpreter, valid from {@link #start()} until {@link #close()}.
@@ -44,8 +48,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>This is CPython's main interpreter, of which there is one per process. It is
  * confined to the thread that started it, which attaches to it (taking the main
  * GIL) only for the duration of each call; in between, the GIL is released. Other
- * threads can create isolated {@linkplain #newSubInterpreter() sub-interpreters},
- * each with its own GIL.
+ * threads can create {@linkplain #newSubInterpreter() sub-interpreters}, which
+ * share its GIL, or {@linkplain #newSubInterpreterFromConfig configured} ones, with
+ * their own GIL.
  *
  * <p>Python writes to the process's native stdout/stderr, not to {@link System#out},
  * and buffers that output: when stdout is not a terminal, it may only appear once
@@ -204,56 +209,99 @@ public final class EmbeddedPython implements AutoCloseable {
     }
 
     /**
-     * Creates an isolated sub-interpreter with its own GIL, confined to the calling
-     * thread. Sub-interpreters on different threads run Python code in parallel,
-     * with each other and with the main interpreter.
+     * Creates a sub-interpreter with the Stable ABI's {@code Py_NewInterpreter()},
+     * confined to the calling thread.
+     *
+     * <p>It has its own modules, {@code sys} and {@code __main__}, but shares the
+     * main interpreter's GIL ({@link InterpreterConfig#legacy()}): sub-interpreters
+     * created this way take turns with each other and with the main interpreter
+     * rather than running in parallel. In exchange it allows everything, including
+     * single-phase-init extension modules, fork and exec. For parallelism, use
+     * {@link #newSubInterpreterFromConfig} with {@link InterpreterConfig#isolated()}.
      *
      * <p>Can be called from any platform thread (not a virtual thread: CPython ties
      * a thread state to its OS thread). Every sub-interpreter must be closed before
      * this interpreter is.
      *
-     * <p>Isolation has a cost: extension modules that do not support it (those using
-     * legacy single-phase initialization) cannot be imported in a sub-interpreter,
-     * nor can it fork, exec or start daemon threads.
-     *
      * @throws PythonException if CPython fails to create it
      */
     public SubInterpreter newSubInterpreter() {
+        return newSubInterpreter(InterpreterConfig.legacy(), arena -> {
+            MemorySegment state = Py_NewInterpreter();
+            if (state.equals(MemorySegment.NULL)) {
+                throw new PythonException("Py_NewInterpreter failed");
+            }
+            return state;
+        });
+    }
+
+    /**
+     * Creates a sub-interpreter with an explicit configuration, via CPython's
+     * version-specific {@code Py_NewInterpreterFromConfig()} (bound from the 3.12
+     * headers, in {@code capi.py312}), confined to the calling thread.
+     *
+     * <p>With {@link InterpreterConfig#isolated()} it has its own GIL, so
+     * sub-interpreters on different threads run Python code in parallel, with each
+     * other and with the main interpreter. Isolation has a cost: extension modules
+     * using legacy single-phase initialization cannot be imported, and it cannot
+     * fork, exec or start daemon threads.
+     *
+     * <p>Thread rules as for {@link #newSubInterpreter()}.
+     *
+     * @throws PythonException if CPython fails to create it
+     */
+    public SubInterpreter newSubInterpreterFromConfig(InterpreterConfig config) {
+        Objects.requireNonNull(config, "config");
+        return newSubInterpreter(config, arena -> {
+            // Already validated by InterpreterConfig: CPython 3.12 must never get to
+            // reject a configuration (its error path loses the GIL).
+            MemorySegment nativeConfig = PyInterpreterConfig.allocate(arena);
+            PyInterpreterConfig.use_main_obmalloc(nativeConfig, config.useMainObmalloc() ? 1 : 0);
+            PyInterpreterConfig.allow_fork(nativeConfig, config.allowFork() ? 1 : 0);
+            PyInterpreterConfig.allow_exec(nativeConfig, config.allowExec() ? 1 : 0);
+            PyInterpreterConfig.allow_threads(nativeConfig, config.allowThreads() ? 1 : 0);
+            PyInterpreterConfig.allow_daemon_threads(nativeConfig, config.allowDaemonThreads() ? 1 : 0);
+            PyInterpreterConfig.check_multi_interp_extensions(nativeConfig, config.checkMultiInterpExtensions() ? 1 : 0);
+            PyInterpreterConfig.gil(nativeConfig, switch (config.gil()) {
+                case SHARED -> PyInterpreterConfig_SHARED_GIL();
+                case OWN -> PyInterpreterConfig_OWN_GIL();
+            });
+
+            MemorySegment newState = arena.allocate(ADDRESS);
+            MemorySegment status = Py_NewInterpreterFromConfig(arena, newState, nativeConfig);
+            if (PyStatus_Exception(status) != 0) {
+                MemorySegment message = PyStatus.err_msg(status);
+                throw new PythonException("Py_NewInterpreterFromConfig failed: "
+                        + (message.equals(MemorySegment.NULL) ? "unknown error" : message.getString(0)));
+            }
+            return newState.get(ADDRESS, 0);
+        });
+    }
+
+    /**
+     * Attaches the calling thread to the main interpreter, creates a sub-interpreter
+     * with {@code create} (which returns its thread state), and detaches again.
+     */
+    private SubInterpreter newSubInterpreter(InterpreterConfig config, Function<Arena, MemorySegment> create) {
         SubInterpreter.checkPlatformThread();
         synchronized (lifecycle) {
             if (closed) {
                 throw new IllegalStateException("The Python interpreter has been finalized");
             }
-            // Attach this thread to the main interpreter: creating a sub-interpreter
-            // requires a current thread state. Reuses the owner's thread state when
-            // called from the owner thread.
+            // Creating a sub-interpreter requires a current thread state. Reuses the
+            // owner's thread state when called from the owner thread.
             int gilState = PyGILState_Ensure();
             try (Arena arena = Arena.ofConfined()) {
                 MemorySegment mainState = PyThreadState_Get();
-                // CPython's _PyInterpreterConfig_INIT: fully isolated, with its own GIL.
-                MemorySegment config = PyInterpreterConfig.allocate(arena);
-                PyInterpreterConfig.use_main_obmalloc(config, 0);
-                PyInterpreterConfig.allow_fork(config, 0);
-                PyInterpreterConfig.allow_exec(config, 0);
-                PyInterpreterConfig.allow_threads(config, 1);
-                PyInterpreterConfig.allow_daemon_threads(config, 0);
-                PyInterpreterConfig.check_multi_interp_extensions(config, 1);
-                PyInterpreterConfig.gil(config, PyInterpreterConfig_OWN_GIL());
-
-                MemorySegment newState = arena.allocate(ADDRESS);
-                MemorySegment status = Py_NewInterpreterFromConfig(arena, newState, config);
-                if (PyStatus_Exception(status) != 0) {
-                    // On failure, CPython has restored mainState as the current one.
-                    MemorySegment message = PyStatus.err_msg(status);
-                    throw new PythonException("Py_NewInterpreterFromConfig failed: "
-                            + (message.equals(MemorySegment.NULL) ? "unknown error" : message.getString(0)));
-                }
-                // The new interpreter's thread state is now current, holding its own
-                // GIL (the main GIL was released). Detach it, then return to the main
-                // interpreter so that PyGILState_Release can undo PyGILState_Ensure.
+                // On failure, CPython restores mainState as the current thread state.
+                create.apply(arena);
+                // The new interpreter's thread state is now current, holding its GIL
+                // (its own, in which case the main GIL was released; or the shared
+                // one). Detach it, then return to the main interpreter so that
+                // PyGILState_Release can undo PyGILState_Ensure.
                 MemorySegment subState = PyEval_SaveThread();
                 PyEval_RestoreThread(mainState);
-                SubInterpreter subInterpreter = new SubInterpreter(this, subState);
+                SubInterpreter subInterpreter = new SubInterpreter(this, subState, config);
                 subInterpreters.add(subInterpreter);
                 return subInterpreter;
             } finally {

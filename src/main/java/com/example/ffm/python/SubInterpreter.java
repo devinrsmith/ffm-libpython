@@ -7,12 +7,13 @@ import static com.example.ffm.python.capi.stable.CApi.Py_EndInterpreter;
 import java.lang.foreign.MemorySegment;
 
 /**
- * An isolated CPython sub-interpreter with its own GIL, created by
- * {@link EmbeddedPython#newSubInterpreter()} and valid until {@link #close()}.
+ * A CPython sub-interpreter, created by {@link EmbeddedPython#newSubInterpreter()} or
+ * {@link EmbeddedPython#newSubInterpreterFromConfig} and valid until {@link #close()}.
  *
  * <p>It has its own modules, {@code sys} and {@code __main__}, separate from the main
- * interpreter's and from other sub-interpreters'. Because it has its own GIL, it
- * runs Python code in parallel with interpreters on other threads.
+ * interpreter's and from other sub-interpreters'. Whether it runs Python code in
+ * parallel with interpreters on other threads depends on its {@link #config()}: only
+ * with a GIL of its own.
  *
  * <p>It is confined to the platform thread that created it: CPython ties the
  * sub-interpreter's thread state to that OS thread.
@@ -23,12 +24,23 @@ public final class SubInterpreter implements AutoCloseable {
     private final Thread owner;
     /** This interpreter's thread state, detached (its GIL released) between calls. */
     private final MemorySegment threadState;
+    private final InterpreterConfig config;
     private boolean closed;
 
-    SubInterpreter(EmbeddedPython parent, MemorySegment threadState) {
+    SubInterpreter(EmbeddedPython parent, MemorySegment threadState, InterpreterConfig config) {
         this.parent = parent;
         this.owner = Thread.currentThread();
         this.threadState = threadState;
+        this.config = config;
+    }
+
+    /**
+     * How it was created: {@link InterpreterConfig#legacy()} for
+     * {@link EmbeddedPython#newSubInterpreter()}, which is what
+     * {@code Py_NewInterpreter()} uses.
+     */
+    public InterpreterConfig config() {
+        return config;
     }
 
     /** Diagnostics about this sub-interpreter, from {@code PyInterpreterState_Get*()}. */
@@ -51,7 +63,7 @@ public final class SubInterpreter implements AutoCloseable {
      */
     public void exec(String source) {
         checkUsable();
-        // Attaching takes only this interpreter's own GIL, never the main one.
+        // Takes this interpreter's GIL: its own, or the main one if shared.
         PyEval_RestoreThread(threadState);
         try {
             PythonCode.run(source);
@@ -60,7 +72,7 @@ public final class SubInterpreter implements AutoCloseable {
         }
     }
 
-    /** Ends the sub-interpreter, releasing its modules and its GIL. */
+    /** Ends the sub-interpreter, releasing its modules (and its GIL, if its own). */
     @Override
     public void close() {
         if (closed) {

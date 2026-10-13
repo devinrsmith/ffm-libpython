@@ -12,6 +12,7 @@
 # Sub-interpreters with their own GIL (3.12+).
 --include-function Py_NewInterpreterFromConfig
 --include-struct PyInterpreterConfig
+--include-constant PyInterpreterConfig_SHARED_GIL
 --include-constant PyInterpreterConfig_OWN_GIL
 --include-struct PyStatus
 --include-function PyStatus_Exception

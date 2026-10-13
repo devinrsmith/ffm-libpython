@@ -229,6 +229,15 @@ public class CPython312 extends CPython312$shared {
            throw new AssertionError("should not reach here", ex$);
         }
     }
+    private static final int PyInterpreterConfig_SHARED_GIL = (int)1L;
+    /**
+     * {@snippet lang=c :
+     * #define PyInterpreterConfig_SHARED_GIL 1
+     * }
+     */
+    public static int PyInterpreterConfig_SHARED_GIL() {
+        return PyInterpreterConfig_SHARED_GIL;
+    }
     private static final int PyInterpreterConfig_OWN_GIL = (int)2L;
     /**
      * {@snippet lang=c :

@@ -1066,6 +1066,64 @@ public class CApi extends CApi$shared {
         }
     }
 
+    private static class Py_NewInterpreter {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            CApi.C_POINTER    );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("Py_NewInterpreter");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * PyThreadState *Py_NewInterpreter(void)
+     * }
+     */
+    public static FunctionDescriptor Py_NewInterpreter$descriptor() {
+        return Py_NewInterpreter.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * PyThreadState *Py_NewInterpreter(void)
+     * }
+     */
+    public static MethodHandle Py_NewInterpreter$handle() {
+        return Py_NewInterpreter.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * PyThreadState *Py_NewInterpreter(void)
+     * }
+     */
+    public static MemorySegment Py_NewInterpreter$address() {
+        return Py_NewInterpreter.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * PyThreadState *Py_NewInterpreter(void)
+     * }
+     */
+    public static MemorySegment Py_NewInterpreter() {
+        var mh$ = Py_NewInterpreter.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("Py_NewInterpreter");
+            }
+            return (MemorySegment)mh$.invokeExact();
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
     private static class Py_EndInterpreter {
         public static final FunctionDescriptor DESC = FunctionDescriptor.ofVoid(
             CApi.C_POINTER

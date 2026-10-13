@@ -52,6 +52,7 @@
 --include-function PyGILState_Release
 --include-function PyThreadState_Get
 --include-function PyThreadState_Swap
+--include-function Py_NewInterpreter
 --include-function Py_EndInterpreter
 
 # Interpreter diagnostics.
