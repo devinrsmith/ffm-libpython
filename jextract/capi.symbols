@@ -18,6 +18,18 @@
 --include-function Py_IsInitialized
 --include-function Py_FinalizeEx
 --include-var Py_Version
+# Diagnostics: the path configuration (wchar_t *) ...
+--include-function Py_GetProgramName
+--include-function Py_GetProgramFullPath
+--include-function Py_GetPythonHome
+--include-function Py_GetPrefix
+--include-function Py_GetExecPrefix
+--include-function Py_GetPath
+# ... and the build (const char *).
+--include-function Py_GetVersion
+--include-function Py_GetPlatform
+--include-function Py_GetCompiler
+--include-function Py_GetBuildInfo
 --include-function PyImport_AddModule
 --include-function PyModule_GetDict
 --include-function Py_CompileString

@@ -532,6 +532,586 @@ public class CApi extends CApi$shared {
         }
     }
 
+    private static class Py_GetProgramName {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            CApi.C_POINTER    );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("Py_GetProgramName");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * wchar_t *Py_GetProgramName(void)
+     * }
+     */
+    public static FunctionDescriptor Py_GetProgramName$descriptor() {
+        return Py_GetProgramName.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * wchar_t *Py_GetProgramName(void)
+     * }
+     */
+    public static MethodHandle Py_GetProgramName$handle() {
+        return Py_GetProgramName.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * wchar_t *Py_GetProgramName(void)
+     * }
+     */
+    public static MemorySegment Py_GetProgramName$address() {
+        return Py_GetProgramName.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * wchar_t *Py_GetProgramName(void)
+     * }
+     */
+    public static MemorySegment Py_GetProgramName() {
+        var mh$ = Py_GetProgramName.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("Py_GetProgramName");
+            }
+            return (MemorySegment)mh$.invokeExact();
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class Py_GetPythonHome {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            CApi.C_POINTER    );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("Py_GetPythonHome");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * wchar_t *Py_GetPythonHome(void)
+     * }
+     */
+    public static FunctionDescriptor Py_GetPythonHome$descriptor() {
+        return Py_GetPythonHome.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * wchar_t *Py_GetPythonHome(void)
+     * }
+     */
+    public static MethodHandle Py_GetPythonHome$handle() {
+        return Py_GetPythonHome.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * wchar_t *Py_GetPythonHome(void)
+     * }
+     */
+    public static MemorySegment Py_GetPythonHome$address() {
+        return Py_GetPythonHome.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * wchar_t *Py_GetPythonHome(void)
+     * }
+     */
+    public static MemorySegment Py_GetPythonHome() {
+        var mh$ = Py_GetPythonHome.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("Py_GetPythonHome");
+            }
+            return (MemorySegment)mh$.invokeExact();
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class Py_GetProgramFullPath {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            CApi.C_POINTER    );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("Py_GetProgramFullPath");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * wchar_t *Py_GetProgramFullPath(void)
+     * }
+     */
+    public static FunctionDescriptor Py_GetProgramFullPath$descriptor() {
+        return Py_GetProgramFullPath.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * wchar_t *Py_GetProgramFullPath(void)
+     * }
+     */
+    public static MethodHandle Py_GetProgramFullPath$handle() {
+        return Py_GetProgramFullPath.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * wchar_t *Py_GetProgramFullPath(void)
+     * }
+     */
+    public static MemorySegment Py_GetProgramFullPath$address() {
+        return Py_GetProgramFullPath.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * wchar_t *Py_GetProgramFullPath(void)
+     * }
+     */
+    public static MemorySegment Py_GetProgramFullPath() {
+        var mh$ = Py_GetProgramFullPath.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("Py_GetProgramFullPath");
+            }
+            return (MemorySegment)mh$.invokeExact();
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class Py_GetPrefix {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            CApi.C_POINTER    );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("Py_GetPrefix");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * wchar_t *Py_GetPrefix(void)
+     * }
+     */
+    public static FunctionDescriptor Py_GetPrefix$descriptor() {
+        return Py_GetPrefix.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * wchar_t *Py_GetPrefix(void)
+     * }
+     */
+    public static MethodHandle Py_GetPrefix$handle() {
+        return Py_GetPrefix.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * wchar_t *Py_GetPrefix(void)
+     * }
+     */
+    public static MemorySegment Py_GetPrefix$address() {
+        return Py_GetPrefix.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * wchar_t *Py_GetPrefix(void)
+     * }
+     */
+    public static MemorySegment Py_GetPrefix() {
+        var mh$ = Py_GetPrefix.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("Py_GetPrefix");
+            }
+            return (MemorySegment)mh$.invokeExact();
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class Py_GetExecPrefix {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            CApi.C_POINTER    );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("Py_GetExecPrefix");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * wchar_t *Py_GetExecPrefix(void)
+     * }
+     */
+    public static FunctionDescriptor Py_GetExecPrefix$descriptor() {
+        return Py_GetExecPrefix.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * wchar_t *Py_GetExecPrefix(void)
+     * }
+     */
+    public static MethodHandle Py_GetExecPrefix$handle() {
+        return Py_GetExecPrefix.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * wchar_t *Py_GetExecPrefix(void)
+     * }
+     */
+    public static MemorySegment Py_GetExecPrefix$address() {
+        return Py_GetExecPrefix.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * wchar_t *Py_GetExecPrefix(void)
+     * }
+     */
+    public static MemorySegment Py_GetExecPrefix() {
+        var mh$ = Py_GetExecPrefix.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("Py_GetExecPrefix");
+            }
+            return (MemorySegment)mh$.invokeExact();
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class Py_GetPath {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            CApi.C_POINTER    );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("Py_GetPath");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * wchar_t *Py_GetPath(void)
+     * }
+     */
+    public static FunctionDescriptor Py_GetPath$descriptor() {
+        return Py_GetPath.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * wchar_t *Py_GetPath(void)
+     * }
+     */
+    public static MethodHandle Py_GetPath$handle() {
+        return Py_GetPath.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * wchar_t *Py_GetPath(void)
+     * }
+     */
+    public static MemorySegment Py_GetPath$address() {
+        return Py_GetPath.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * wchar_t *Py_GetPath(void)
+     * }
+     */
+    public static MemorySegment Py_GetPath() {
+        var mh$ = Py_GetPath.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("Py_GetPath");
+            }
+            return (MemorySegment)mh$.invokeExact();
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class Py_GetVersion {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            CApi.C_POINTER    );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("Py_GetVersion");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * const char *Py_GetVersion(void)
+     * }
+     */
+    public static FunctionDescriptor Py_GetVersion$descriptor() {
+        return Py_GetVersion.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * const char *Py_GetVersion(void)
+     * }
+     */
+    public static MethodHandle Py_GetVersion$handle() {
+        return Py_GetVersion.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * const char *Py_GetVersion(void)
+     * }
+     */
+    public static MemorySegment Py_GetVersion$address() {
+        return Py_GetVersion.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * const char *Py_GetVersion(void)
+     * }
+     */
+    public static MemorySegment Py_GetVersion() {
+        var mh$ = Py_GetVersion.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("Py_GetVersion");
+            }
+            return (MemorySegment)mh$.invokeExact();
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class Py_GetPlatform {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            CApi.C_POINTER    );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("Py_GetPlatform");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * const char *Py_GetPlatform(void)
+     * }
+     */
+    public static FunctionDescriptor Py_GetPlatform$descriptor() {
+        return Py_GetPlatform.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * const char *Py_GetPlatform(void)
+     * }
+     */
+    public static MethodHandle Py_GetPlatform$handle() {
+        return Py_GetPlatform.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * const char *Py_GetPlatform(void)
+     * }
+     */
+    public static MemorySegment Py_GetPlatform$address() {
+        return Py_GetPlatform.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * const char *Py_GetPlatform(void)
+     * }
+     */
+    public static MemorySegment Py_GetPlatform() {
+        var mh$ = Py_GetPlatform.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("Py_GetPlatform");
+            }
+            return (MemorySegment)mh$.invokeExact();
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class Py_GetCompiler {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            CApi.C_POINTER    );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("Py_GetCompiler");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * const char *Py_GetCompiler(void)
+     * }
+     */
+    public static FunctionDescriptor Py_GetCompiler$descriptor() {
+        return Py_GetCompiler.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * const char *Py_GetCompiler(void)
+     * }
+     */
+    public static MethodHandle Py_GetCompiler$handle() {
+        return Py_GetCompiler.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * const char *Py_GetCompiler(void)
+     * }
+     */
+    public static MemorySegment Py_GetCompiler$address() {
+        return Py_GetCompiler.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * const char *Py_GetCompiler(void)
+     * }
+     */
+    public static MemorySegment Py_GetCompiler() {
+        var mh$ = Py_GetCompiler.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("Py_GetCompiler");
+            }
+            return (MemorySegment)mh$.invokeExact();
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class Py_GetBuildInfo {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            CApi.C_POINTER    );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("Py_GetBuildInfo");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * const char *Py_GetBuildInfo(void)
+     * }
+     */
+    public static FunctionDescriptor Py_GetBuildInfo$descriptor() {
+        return Py_GetBuildInfo.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * const char *Py_GetBuildInfo(void)
+     * }
+     */
+    public static MethodHandle Py_GetBuildInfo$handle() {
+        return Py_GetBuildInfo.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * const char *Py_GetBuildInfo(void)
+     * }
+     */
+    public static MemorySegment Py_GetBuildInfo$address() {
+        return Py_GetBuildInfo.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * const char *Py_GetBuildInfo(void)
+     * }
+     */
+    public static MemorySegment Py_GetBuildInfo() {
+        var mh$ = Py_GetBuildInfo.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("Py_GetBuildInfo");
+            }
+            return (MemorySegment)mh$.invokeExact();
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
     private static class Py_Version$constants {
         public static final OfLong LAYOUT = CApi.C_LONG;
         public static final MemorySegment SEGMENT = SYMBOL_LOOKUP.findOrThrow("Py_Version").reinterpret(LAYOUT.byteSize());

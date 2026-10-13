@@ -7,6 +7,16 @@ import static com.example.ffm.python.capi.CApi.PyModule_GetDict;
 import static com.example.ffm.python.capi.CApi.Py_CompileString;
 import static com.example.ffm.python.capi.CApi.Py_DecRef;
 import static com.example.ffm.python.capi.CApi.Py_FinalizeEx;
+import static com.example.ffm.python.capi.CApi.Py_GetBuildInfo;
+import static com.example.ffm.python.capi.CApi.Py_GetCompiler;
+import static com.example.ffm.python.capi.CApi.Py_GetExecPrefix;
+import static com.example.ffm.python.capi.CApi.Py_GetPath;
+import static com.example.ffm.python.capi.CApi.Py_GetPlatform;
+import static com.example.ffm.python.capi.CApi.Py_GetPrefix;
+import static com.example.ffm.python.capi.CApi.Py_GetProgramFullPath;
+import static com.example.ffm.python.capi.CApi.Py_GetProgramName;
+import static com.example.ffm.python.capi.CApi.Py_GetPythonHome;
+import static com.example.ffm.python.capi.CApi.Py_GetVersion;
 import static com.example.ffm.python.capi.CApi.Py_InitializeEx;
 import static com.example.ffm.python.capi.CApi.Py_IsInitialized;
 import static com.example.ffm.python.capi.CApi.Py_SetProgramName;
@@ -16,8 +26,11 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.Optional;
+import java.util.SequencedMap;
 
 /**
  * An embedded CPython interpreter, valid from {@link #start()} until {@link #close()}.
@@ -93,6 +106,40 @@ public final class EmbeddedPython implements AutoCloseable {
      */
     public Optional<Path> executable() {
         return selection.executable();
+    }
+
+    /**
+     * Reports how the interpreter was configured, as returned by CPython's
+     * {@code Py_Get*()} functions, keyed by function name in a stable order. The
+     * values are {@code null} where CPython returns {@code NULL} (e.g. an unset
+     * {@code Py_GetPythonHome()}).
+     *
+     * <p>The path functions ({@code Py_GetPrefix()} etc.) are deprecated since 3.13
+     * and no longer declared in the 3.15 headers, in favour of {@code sys} and
+     * {@code PyConfig_Get()}. Being part of the Stable ABI, they are still exported.
+     */
+    public SequencedMap<String, String> configuration() {
+        checkUsable();
+        SequencedMap<String, String> configuration = new LinkedHashMap<>();
+        // Path configuration: wchar_t strings owned by CPython.
+        put(configuration, "Py_GetProgramName", Py_GetProgramName(), WCHAR_CHARSET);
+        put(configuration, "Py_GetProgramFullPath", Py_GetProgramFullPath(), WCHAR_CHARSET);
+        put(configuration, "Py_GetPythonHome", Py_GetPythonHome(), WCHAR_CHARSET);
+        put(configuration, "Py_GetPrefix", Py_GetPrefix(), WCHAR_CHARSET);
+        put(configuration, "Py_GetExecPrefix", Py_GetExecPrefix(), WCHAR_CHARSET);
+        put(configuration, "Py_GetPath", Py_GetPath(), WCHAR_CHARSET);
+        // Build information: static UTF-8 strings.
+        put(configuration, "Py_GetVersion", Py_GetVersion(), StandardCharsets.UTF_8);
+        put(configuration, "Py_GetPlatform", Py_GetPlatform(), StandardCharsets.UTF_8);
+        put(configuration, "Py_GetCompiler", Py_GetCompiler(), StandardCharsets.UTF_8);
+        put(configuration, "Py_GetBuildInfo", Py_GetBuildInfo(), StandardCharsets.UTF_8);
+        return configuration;
+    }
+
+    private static void put(SequencedMap<String, String> map, String name, MemorySegment string, Charset charset) {
+        // The generated bindings give char/wchar_t pointers an unbounded target
+        // layout, so the NUL-terminated string can be read directly.
+        map.put(name, string.equals(MemorySegment.NULL) ? null : string.getString(0, charset));
     }
 
     /**

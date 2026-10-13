@@ -108,7 +108,10 @@ The shell also uses
 - It runs the Gradle daemon itself on that JDK.
 
 The shell also sets `CPATH` to glibc's headers so jextract can find them (see
-below).
+below). It unsets the `PYTHONPATH`, `PYTHONHASHSEED` and `PYTHONNOUSERSITE`
+variables that nixpkgs' Python setup hook exports. `PYTHONPATH` in particular
+pointed at python312's site-packages, and the embedded interpreter honors it
+like `python` does, so it ended up on a 3.15 interpreter's module search path.
 
 ## Layout
 
@@ -185,6 +188,53 @@ the cause: neither a larger thread stack (`JEXTRACT_JAVA_OPTIONS=-Xss16m`) nor
 `LIBCLANG_DISABLE_CRASH_RECOVERY=1` helped. The task writes into a
 staging directory and syncs into `src/main/jextract` only on success, so a
 crash never damages the committed bindings.
+
+## Startup diagnostics
+
+After initializing, before running any Python code, `Main` prints how the
+interpreter was configured. `EmbeddedPython.configuration()` collects these
+values from CPython's `Py_Get*()` functions. Here is a run in a 3.15 virtual
+environment:
+
+```console
+$ ./gradlew run -q -Ppython.executable=/home/me/.venv/bin/python
+Java: starting embedded Python
+Java: embedding /nix/store/…-python3-3.15.0/lib/libpython3.15.so.1.0
+Java: as /home/me/.venv/bin/python
+Java: Python configuration:
+  Py_GetProgramName()     = /home/me/.venv/bin/python
+  Py_GetProgramFullPath() = /home/me/.venv/bin/python
+  Py_GetPythonHome()      = (not set)
+  Py_GetPrefix()          = /home/me/.venv
+  Py_GetExecPrefix()      = /home/me/.venv
+  Py_GetPath()            = /nix/store/…-python3-3.15.0/lib/python315.zip:/nix/store/…-python3-3.15.0/lib/python3.15:/nix/store/…-python3-3.15.0/lib/python3.15/lib-dynload
+  Py_GetVersion()         = 3.15.0 (main, Oct  9 2026, 11:16:41) [GCC 16.2.0]
+  Py_GetPlatform()        = linux
+  Py_GetCompiler()        = [GCC 16.2.0]
+  Py_GetBuildInfo()       = main, Oct  9 2026, 11:16:41
+Hello from Python 3.15.0, embedded in Java via FFM!
+sys.prefix = /home/me/.venv
+Java: Python finalized
+```
+
+There are two groups:
+
+- **Path configuration** (`wchar_t *`): `Py_GetProgramName`,
+  `Py_GetProgramFullPath`, `Py_GetPythonHome`, `Py_GetPrefix`,
+  `Py_GetExecPrefix` and `Py_GetPath`. These have been deprecated since 3.13
+  in favour of `sys` and `PyConfig_Get()`. They're no longer declared in the
+  3.15 headers, but they're part of the Stable ABI, so 3.15 still exports them
+  and the bindings generated from 3.12 still work. `Py_GetPath()` is the module
+  search path *before* `site` runs, so it doesn't include site-packages.
+- **Build** (`const char *`): `Py_GetVersion`, `Py_GetPlatform`,
+  `Py_GetCompiler` and `Py_GetBuildInfo`. `Py_GetCopyright` returns a
+  multi-line legal notice rather than configuration, so it isn't bound.
+
+**In a venv, `Py_GetPrefix()` and `Py_GetExecPrefix()` change meaning between
+versions.** Up to 3.13 they report the venv's *base* installation, even though
+`sys.prefix` is the venv. From 3.14 they report the venv. `Py_GetProgramName()`
+and `Py_GetProgramFullPath()` name the venv's `python` on every version, so use
+those (or `sys.prefix`) to tell whether a venv is in effect.
 
 ## Design notes
 

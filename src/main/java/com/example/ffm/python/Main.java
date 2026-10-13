@@ -13,6 +13,9 @@ public final class Main {
         try (EmbeddedPython python = EmbeddedPython.start()) {
             System.out.println("Java: embedding " + python.library());
             python.executable().ifPresent(executable -> System.out.println("Java: as " + executable));
+            System.out.println("Java: Python configuration:");
+            python.configuration().forEach((name, value) ->
+                    System.out.printf("  %-23s = %s%n", name + "()", value == null ? "(not set)" : value));
             System.out.flush();
             python.exec("""
                     import sys

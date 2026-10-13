@@ -169,6 +169,12 @@ final class LibPython {
         }
     }
 
+    /** The {@code PY_VERSION_HEX} of the loaded libpython. */
+    static long version() {
+        load();
+        return Py_Version();
+    }
+
     /** Formats a {@code PY_VERSION_HEX} value as major.minor.micro. */
     static String format(long versionHex) {
         return (versionHex >>> 24 & 0xFF) + "." + (versionHex >>> 16 & 0xFF) + "." + (versionHex >>> 8 & 0xFF);
