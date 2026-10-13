@@ -34,10 +34,35 @@ where its headers and library are, so a different install only needs:
 Only Linux has been tested. macOS needs at least a different library name
 (`libpython3.12.dylib`, or a framework build).
 
+### With Nix
+
+`flake.nix` provides a dev shell (Linux) with everything above: JDK 25,
+jextract and Python 3.12.
+
+```sh
+nix develop
+./gradlew build run
+./gradlew jextract   # works as-is in this shell
+```
+
+The shell also uses
+[nix-gradle-wrapper](https://github.com/devinrsmith/nix-gradle-wrapper):
+
+- It copies the Gradle distribution pinned in `gradle-wrapper.properties` into
+  the Nix store, so `./gradlew` never downloads Gradle.
+- It points `GRADLE_USER_HOME` at an isolated directory
+  (`~/.cache/ffm-proto-nix-gradle-home`) that limits Gradle to the shell's
+  JDK 25. Gradle won't detect other JDKs on the host or download any.
+- It runs the Gradle daemon itself on that JDK.
+
+The shell also sets `CPATH` to glibc's headers so jextract can find them (see
+below).
+
 ## Layout
 
 ```
 build-logic/                      included build: the `jextract` task and plugin
+flake.nix                         Nix dev shell (JDK 25, jextract, Python 3.12, vendored Gradle)
 gradle/libs.versions.toml         version catalog
 jextract/capi.symbols             which C symbols jextract generates bindings for
 src/main/jextract/                generated bindings (committed, do not edit)
@@ -78,12 +103,19 @@ calls `System.loadLibrary("python3.12")` and searches `java.library.path`. The
 
 **When libclang can't find the C standard headers.** On mainstream distros
 jextract finds `/usr/include` by itself. Nix and similar setups don't expose
-it. If you see `'stdlib.h' file not found`, pass the extra include directories,
-separated by `:`:
+it. If you see `'stdlib.h' file not found`, set `CPATH` to the libc include
+directory, as the Nix dev shell does. Alternatively, pass extra include
+directories, separated by `:`:
 
 ```sh
-./gradlew jextract -Pjextract.includeDirs=<clang resource include dir>:<libc include dir>
+./gradlew jextract -Pjextract.includeDirs=/path/to/libc/include
 ```
+
+**jextract occasionally crashes.** About 2 in 50 runs while I developed this,
+jextract (from nixpkgs, jextract 23 on libclang 21) died with a SIGSEGV inside
+libclang and left an `hs_err_pid*.log`. Rerunning works. The task writes into a
+staging directory and syncs into `src/main/jextract` only on success, so a
+crash never damages the committed bindings.
 
 ## Design notes
 
