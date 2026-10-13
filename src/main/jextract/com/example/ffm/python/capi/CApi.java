@@ -20,14 +20,18 @@ public class CApi extends CApi$shared {
 
     static final Arena LIBRARY_ARENA = Arena.ofAuto();
 
-
-    static {
-        System.loadLibrary("python3.12");
-    }
-
     static final SymbolLookup SYMBOL_LOOKUP = SymbolLookup.loaderLookup()
             .or(Linker.nativeLinker().defaultLookup());
 
+    private static final int Py_file_input = (int)257L;
+    /**
+     * {@snippet lang=c :
+     * #define Py_file_input 257
+     * }
+     */
+    public static int Py_file_input() {
+        return Py_file_input;
+    }
     private static final int RTLD_NOW = (int)2L;
     /**
      * {@snippet lang=c :
@@ -56,14 +60,12 @@ public class CApi extends CApi$shared {
         return RTLD_GLOBAL;
     }
 
-    private static class PyRun_SimpleStringFlags {
-        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
-            CApi.C_INT,
-            CApi.C_POINTER,
+    private static class Py_DecRef {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.ofVoid(
             CApi.C_POINTER
         );
 
-        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("PyRun_SimpleStringFlags");
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("Py_DecRef");
 
         public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
@@ -71,45 +73,224 @@ public class CApi extends CApi$shared {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * int PyRun_SimpleStringFlags(const char *, PyCompilerFlags *)
+     * void Py_DecRef(PyObject *)
      * }
      */
-    public static FunctionDescriptor PyRun_SimpleStringFlags$descriptor() {
-        return PyRun_SimpleStringFlags.DESC;
+    public static FunctionDescriptor Py_DecRef$descriptor() {
+        return Py_DecRef.DESC;
     }
 
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * int PyRun_SimpleStringFlags(const char *, PyCompilerFlags *)
+     * void Py_DecRef(PyObject *)
      * }
      */
-    public static MethodHandle PyRun_SimpleStringFlags$handle() {
-        return PyRun_SimpleStringFlags.HANDLE;
+    public static MethodHandle Py_DecRef$handle() {
+        return Py_DecRef.HANDLE;
     }
 
     /**
      * Address for:
      * {@snippet lang=c :
-     * int PyRun_SimpleStringFlags(const char *, PyCompilerFlags *)
+     * void Py_DecRef(PyObject *)
      * }
      */
-    public static MemorySegment PyRun_SimpleStringFlags$address() {
-        return PyRun_SimpleStringFlags.ADDR;
+    public static MemorySegment Py_DecRef$address() {
+        return Py_DecRef.ADDR;
     }
 
     /**
      * {@snippet lang=c :
-     * int PyRun_SimpleStringFlags(const char *, PyCompilerFlags *)
+     * void Py_DecRef(PyObject *)
      * }
      */
-    public static int PyRun_SimpleStringFlags(MemorySegment x0, MemorySegment x1) {
-        var mh$ = PyRun_SimpleStringFlags.HANDLE;
+    public static void Py_DecRef(MemorySegment x0) {
+        var mh$ = Py_DecRef.HANDLE;
         try {
             if (TRACE_DOWNCALLS) {
-                traceDowncall("PyRun_SimpleStringFlags", x0, x1);
+                traceDowncall("Py_DecRef", x0);
             }
-            return (int)mh$.invokeExact(x0, x1);
+            mh$.invokeExact(x0);
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class PyModule_GetDict {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            CApi.C_POINTER,
+            CApi.C_POINTER
+        );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("PyModule_GetDict");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * PyObject *PyModule_GetDict(PyObject *)
+     * }
+     */
+    public static FunctionDescriptor PyModule_GetDict$descriptor() {
+        return PyModule_GetDict.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * PyObject *PyModule_GetDict(PyObject *)
+     * }
+     */
+    public static MethodHandle PyModule_GetDict$handle() {
+        return PyModule_GetDict.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * PyObject *PyModule_GetDict(PyObject *)
+     * }
+     */
+    public static MemorySegment PyModule_GetDict$address() {
+        return PyModule_GetDict.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * PyObject *PyModule_GetDict(PyObject *)
+     * }
+     */
+    public static MemorySegment PyModule_GetDict(MemorySegment x0) {
+        var mh$ = PyModule_GetDict.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("PyModule_GetDict", x0);
+            }
+            return (MemorySegment)mh$.invokeExact(x0);
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class Py_CompileString {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            CApi.C_POINTER,
+            CApi.C_POINTER,
+            CApi.C_POINTER,
+            CApi.C_INT
+        );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("Py_CompileString");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * PyObject *Py_CompileString(const char *, const char *, int)
+     * }
+     */
+    public static FunctionDescriptor Py_CompileString$descriptor() {
+        return Py_CompileString.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * PyObject *Py_CompileString(const char *, const char *, int)
+     * }
+     */
+    public static MethodHandle Py_CompileString$handle() {
+        return Py_CompileString.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * PyObject *Py_CompileString(const char *, const char *, int)
+     * }
+     */
+    public static MemorySegment Py_CompileString$address() {
+        return Py_CompileString.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * PyObject *Py_CompileString(const char *, const char *, int)
+     * }
+     */
+    public static MemorySegment Py_CompileString(MemorySegment x0, MemorySegment x1, int x2) {
+        var mh$ = Py_CompileString.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("Py_CompileString", x0, x1, x2);
+            }
+            return (MemorySegment)mh$.invokeExact(x0, x1, x2);
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class PyErr_Print {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.ofVoid(    );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("PyErr_Print");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * void PyErr_Print(void)
+     * }
+     */
+    public static FunctionDescriptor PyErr_Print$descriptor() {
+        return PyErr_Print.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * void PyErr_Print(void)
+     * }
+     */
+    public static MethodHandle PyErr_Print$handle() {
+        return PyErr_Print.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * void PyErr_Print(void)
+     * }
+     */
+    public static MemorySegment PyErr_Print$address() {
+        return PyErr_Print.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * void PyErr_Print(void)
+     * }
+     */
+    public static void PyErr_Print() {
+        var mh$ = PyErr_Print.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("PyErr_Print");
+            }
+            mh$.invokeExact();
         } catch (Error | RuntimeException ex) {
            throw ex;
         } catch (Throwable ex$) {
@@ -292,6 +473,173 @@ public class CApi extends CApi$shared {
         }
     }
 
+    private static class Py_Version$constants {
+        public static final OfLong LAYOUT = CApi.C_LONG;
+        public static final MemorySegment SEGMENT = SYMBOL_LOOKUP.findOrThrow("Py_Version").reinterpret(LAYOUT.byteSize());
+    }
+
+    /**
+     * Layout for variable:
+     * {@snippet lang=c :
+     * extern const unsigned long Py_Version
+     * }
+     */
+    public static OfLong Py_Version$layout() {
+        return Py_Version$constants.LAYOUT;
+    }
+
+    /**
+     * Segment for variable:
+     * {@snippet lang=c :
+     * extern const unsigned long Py_Version
+     * }
+     */
+    public static MemorySegment Py_Version$segment() {
+        return Py_Version$constants.SEGMENT;
+    }
+
+    /**
+     * Getter for variable:
+     * {@snippet lang=c :
+     * extern const unsigned long Py_Version
+     * }
+     */
+    public static long Py_Version() {
+        return Py_Version$constants.SEGMENT.get(Py_Version$constants.LAYOUT, 0L);
+    }
+
+    /**
+     * Setter for variable:
+     * {@snippet lang=c :
+     * extern const unsigned long Py_Version
+     * }
+     */
+    public static void Py_Version(long varValue) {
+        Py_Version$constants.SEGMENT.set(Py_Version$constants.LAYOUT, 0L, varValue);
+    }
+
+    private static class PyEval_EvalCode {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            CApi.C_POINTER,
+            CApi.C_POINTER,
+            CApi.C_POINTER,
+            CApi.C_POINTER
+        );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("PyEval_EvalCode");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * PyObject *PyEval_EvalCode(PyObject *, PyObject *, PyObject *)
+     * }
+     */
+    public static FunctionDescriptor PyEval_EvalCode$descriptor() {
+        return PyEval_EvalCode.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * PyObject *PyEval_EvalCode(PyObject *, PyObject *, PyObject *)
+     * }
+     */
+    public static MethodHandle PyEval_EvalCode$handle() {
+        return PyEval_EvalCode.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * PyObject *PyEval_EvalCode(PyObject *, PyObject *, PyObject *)
+     * }
+     */
+    public static MemorySegment PyEval_EvalCode$address() {
+        return PyEval_EvalCode.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * PyObject *PyEval_EvalCode(PyObject *, PyObject *, PyObject *)
+     * }
+     */
+    public static MemorySegment PyEval_EvalCode(MemorySegment x0, MemorySegment x1, MemorySegment x2) {
+        var mh$ = PyEval_EvalCode.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("PyEval_EvalCode", x0, x1, x2);
+            }
+            return (MemorySegment)mh$.invokeExact(x0, x1, x2);
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class PyImport_AddModule {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            CApi.C_POINTER,
+            CApi.C_POINTER
+        );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("PyImport_AddModule");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * PyObject *PyImport_AddModule(const char *name)
+     * }
+     */
+    public static FunctionDescriptor PyImport_AddModule$descriptor() {
+        return PyImport_AddModule.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * PyObject *PyImport_AddModule(const char *name)
+     * }
+     */
+    public static MethodHandle PyImport_AddModule$handle() {
+        return PyImport_AddModule.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * PyObject *PyImport_AddModule(const char *name)
+     * }
+     */
+    public static MemorySegment PyImport_AddModule$address() {
+        return PyImport_AddModule.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * PyObject *PyImport_AddModule(const char *name)
+     * }
+     */
+    public static MemorySegment PyImport_AddModule(MemorySegment name) {
+        var mh$ = PyImport_AddModule.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("PyImport_AddModule", name);
+            }
+            return (MemorySegment)mh$.invokeExact(name);
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
     private static class dlopen {
         public static final FunctionDescriptor DESC = FunctionDescriptor.of(
             CApi.C_POINTER,
@@ -404,67 +752,6 @@ public class CApi extends CApi$shared {
                 traceDowncall("dlerror");
             }
             return (MemorySegment)mh$.invokeExact();
-        } catch (Error | RuntimeException ex) {
-           throw ex;
-        } catch (Throwable ex$) {
-           throw new AssertionError("should not reach here", ex$);
-        }
-    }
-
-    private static class dladdr {
-        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
-            CApi.C_INT,
-            CApi.C_POINTER,
-            CApi.C_POINTER
-        );
-
-        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("dladdr");
-
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
-    }
-
-    /**
-     * Function descriptor for:
-     * {@snippet lang=c :
-     * extern int dladdr(const void *__address, Dl_info *__info)
-     * }
-     */
-    public static FunctionDescriptor dladdr$descriptor() {
-        return dladdr.DESC;
-    }
-
-    /**
-     * Downcall method handle for:
-     * {@snippet lang=c :
-     * extern int dladdr(const void *__address, Dl_info *__info)
-     * }
-     */
-    public static MethodHandle dladdr$handle() {
-        return dladdr.HANDLE;
-    }
-
-    /**
-     * Address for:
-     * {@snippet lang=c :
-     * extern int dladdr(const void *__address, Dl_info *__info)
-     * }
-     */
-    public static MemorySegment dladdr$address() {
-        return dladdr.ADDR;
-    }
-
-    /**
-     * {@snippet lang=c :
-     * extern int dladdr(const void *__address, Dl_info *__info)
-     * }
-     */
-    public static int dladdr(MemorySegment __address, MemorySegment __info) {
-        var mh$ = dladdr.HANDLE;
-        try {
-            if (TRACE_DOWNCALLS) {
-                traceDowncall("dladdr", __address, __info);
-            }
-            return (int)mh$.invokeExact(__address, __info);
         } catch (Error | RuntimeException ex) {
            throw ex;
         } catch (Throwable ex$) {

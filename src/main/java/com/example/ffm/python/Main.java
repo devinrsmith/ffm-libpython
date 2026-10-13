@@ -11,6 +11,8 @@ public final class Main {
         System.out.flush();
 
         try (EmbeddedPython python = EmbeddedPython.start()) {
+            System.out.println("Java: embedding " + python.library());
+            System.out.flush();
             python.exec("""
                     import sys
                     print(f"Hello from Python {sys.version.split()[0]}, embedded in Java via FFM!")

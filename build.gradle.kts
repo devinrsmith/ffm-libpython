@@ -9,34 +9,30 @@ java {
     }
 }
 
-// --- Locating libpython ------------------------------------------------------
-// Ask the target interpreter where its headers and shared library live, rather
-// than hard-coding distro-specific paths. Evaluated lazily, only by tasks that
-// need it (jextract, run, test).
+// --- Locating Python ---------------------------------------------------------
+// The bindings are generated from the headers of the interpreter named by
+// `jextract.python` (the oldest supported version). Evaluated lazily, only when
+// the jextract task runs.
 
-val pythonExecutable = providers.gradleProperty("python.executable")
-
-fun pythonSysconfig(expression: String): Provider<String> =
-    providers.exec {
-        commandLine(pythonExecutable.get(), "-c", "import sysconfig; print($expression)")
-    }.standardOutput.asText.map { it.trim() }
-
-val pythonIncludeDir = pythonSysconfig("sysconfig.get_path('include')")
-val pythonLibDir = pythonSysconfig("sysconfig.get_config_var('LIBDIR')")
+val pythonIncludeDir = providers.exec {
+    commandLine(
+        providers.gradleProperty("jextract.python").get(),
+        "-c", "import sysconfig; print(sysconfig.get_path('include'))",
+    )
+}.standardOutput.asText.map { it.trim() }
 
 // --- Bindings ----------------------------------------------------------------
 
 tasks.jextract {
-    // dlfcn.h supplies dladdr/dlopen, used to make libpython's symbols global.
+    // dlfcn.h supplies dlopen, used to make libpython's symbols global.
     headers = listOf("<Python.h>", "<dlfcn.h>")
-    defines.add("_GNU_SOURCE") // for dladdr and Dl_info
+    // Restrict Python.h to the Stable ABI as of 3.12, which every later 3.x
+    // libpython keeps providing.
+    defines.add("Py_LIMITED_API=0x030C0000")
     symbolsFile = layout.projectDirectory.file("jextract/capi.symbols")
     targetPackage = "com.example.ffm.python.capi"
     headerClassName = "CApi"
-    // Generates System.loadLibrary("python3.12"), so the library is found via
-    // java.library.path (set below) rather than only the dynamic linker's path.
-    libraries.add("python3.12")
-    useSystemLoadLibrary = true
+    // No --library: which libpython to load is decided at runtime (LibPython.java).
     includeDirs.add(pythonIncludeDir)
     // Extra -I paths for environments where libclang cannot find the C
     // standard headers by itself (e.g. Nix), separated by the path separator.
@@ -62,8 +58,13 @@ application {
     applicationDefaultJvmArgs = listOf("--enable-native-access=com.example.ffm.python")
 }
 
+// Forward the runtime's libpython selection, e.g. `./gradlew run -Ppython.executable=python3.14`.
+val pythonRuntimeProperties = listOf("python.executable", "python.library")
+    .mapNotNull { name -> providers.gradleProperty(name).orNull?.let { name to it } }
+    .toMap()
+
 tasks.run {
-    jvmArgumentProviders.add(JavaLibraryPath(pythonLibDir))
+    systemProperties(pythonRuntimeProperties)
 }
 
 testing {
@@ -74,7 +75,7 @@ testing {
                 testTask {
                     // Tests run on the classpath (there is no test module-info).
                     jvmArgs("--enable-native-access=ALL-UNNAMED")
-                    jvmArgumentProviders.add(JavaLibraryPath(pythonLibDir))
+                    systemProperties(pythonRuntimeProperties)
                     testLogging {
                         events("passed", "skipped", "failed")
                         showStandardStreams = true

@@ -1,22 +1,30 @@
 # jextract argument file: the C symbols to generate bindings for.
 #
-# To find more, dump everything a header exposes and copy the lines you need:
-#   jextract -I <python include dir> --dump-includes all.symbols '<Python.h>'
+# Python.h is extracted with Py_LIMITED_API set (see build.gradle.kts), so only
+# Stable ABI symbols are visible here: those keep working with any later 3.x
+# libpython. To find more, dump everything on offer and copy the lines you need:
+#   jextract -D Py_LIMITED_API=0x030C0000 -I <python include dir> \
+#       --dump-includes all.symbols '<Python.h>'
 #
-# Function-like macros are not extracted: e.g. PyRun_SimpleString(s) is a macro
-# for PyRun_SimpleStringFlags(s, NULL), so bind the latter.
+# Function-like macros are not extracted: e.g. Py_DECREF(o) is a macro, so bind
+# the function Py_DecRef instead.
 
 # <Python.h>
 --include-function Py_InitializeEx
 --include-function Py_IsInitialized
 --include-function Py_FinalizeEx
---include-function PyRun_SimpleStringFlags
+--include-var Py_Version
+--include-function PyImport_AddModule
+--include-function PyModule_GetDict
+--include-function Py_CompileString
+--include-constant Py_file_input
+--include-function PyEval_EvalCode
+--include-function PyErr_Print
+--include-function Py_DecRef
 
 # <dlfcn.h>
---include-function dladdr
 --include-function dlopen
 --include-function dlerror
---include-struct Dl_info
 --include-constant RTLD_NOW
 --include-constant RTLD_GLOBAL
 --include-constant RTLD_NOLOAD

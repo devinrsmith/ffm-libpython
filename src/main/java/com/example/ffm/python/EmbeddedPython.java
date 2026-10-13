@@ -1,20 +1,19 @@
 package com.example.ffm.python;
 
-import static com.example.ffm.python.capi.CApi.PyRun_SimpleStringFlags;
+import static com.example.ffm.python.capi.CApi.PyErr_Print;
+import static com.example.ffm.python.capi.CApi.PyEval_EvalCode;
+import static com.example.ffm.python.capi.CApi.PyImport_AddModule;
+import static com.example.ffm.python.capi.CApi.PyModule_GetDict;
+import static com.example.ffm.python.capi.CApi.Py_CompileString;
+import static com.example.ffm.python.capi.CApi.Py_DecRef;
 import static com.example.ffm.python.capi.CApi.Py_FinalizeEx;
 import static com.example.ffm.python.capi.CApi.Py_InitializeEx;
 import static com.example.ffm.python.capi.CApi.Py_IsInitialized;
-import static com.example.ffm.python.capi.CApi.RTLD_GLOBAL;
-import static com.example.ffm.python.capi.CApi.RTLD_NOLOAD;
-import static com.example.ffm.python.capi.CApi.RTLD_NOW;
-import static com.example.ffm.python.capi.CApi.dladdr;
-import static com.example.ffm.python.capi.CApi.dlerror;
-import static com.example.ffm.python.capi.CApi.dlopen;
+import static com.example.ffm.python.capi.CApi.Py_file_input;
 
-import com.example.ffm.python.capi.Dl_info;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
-import java.lang.foreign.SymbolLookup;
+import java.nio.file.Path;
 
 /**
  * An embedded CPython interpreter, valid from {@link #start()} until {@link #close()}.
@@ -26,39 +25,54 @@ import java.lang.foreign.SymbolLookup;
  * <p>Python writes to the process's native stdout/stderr, not to {@link System#out},
  * and buffers that output: when stdout is not a terminal, it may only appear once
  * the interpreter is finalized.
+ *
+ * <p>Which libpython is embedded is decided at runtime; see {@link LibPython}.
  */
 public final class EmbeddedPython implements AutoCloseable {
 
+    private final Path library;
     private final Thread owner;
     private boolean closed;
 
-    private EmbeddedPython() {
+    private EmbeddedPython(Path library) {
+        this.library = library;
         this.owner = Thread.currentThread();
     }
 
     /**
      * Initializes the interpreter.
      *
-     * @throws IllegalStateException if an interpreter is already running in this process
+     * @throws IllegalStateException if libpython cannot be loaded, or an interpreter
+     *     is already running in this process
      */
     public static EmbeddedPython start() {
+        Path library = LibPython.load();
         if (isInitialized()) {
             throw new IllegalStateException("A Python interpreter is already initialized");
         }
-        exportLibPythonSymbols();
         // initsigs = 0: do not let Python install signal handlers (SIGINT etc.),
         // which belong to the JVM.
         Py_InitializeEx(0);
-        return new EmbeddedPython();
+        return new EmbeddedPython(library);
     }
 
     /** Whether a Python interpreter is currently initialized in this process. */
     public static boolean isInitialized() {
+        LibPython.load();
         return Py_IsInitialized() != 0;
     }
 
+    /** The libpython shared library this interpreter runs from. */
+    public Path library() {
+        return library;
+    }
+
     /**
-     * Runs Python source code in the {@code __main__} module.
+     * Runs Python source code in the {@code __main__} module, like
+     * {@code PyRun_SimpleString} (which is not part of the Stable ABI).
+     *
+     * <p>As with {@code PyRun_SimpleString}, an uncaught {@code SystemExit} exits the
+     * whole process, JVM included.
      *
      * @throws PythonException if the code raised an exception; Python has already
      *     printed the traceback to stderr
@@ -66,13 +80,32 @@ public final class EmbeddedPython implements AutoCloseable {
     public void exec(String source) {
         checkUsable();
         try (Arena arena = Arena.ofConfined()) {
-            // Copies the string into native memory as NUL-terminated UTF-8, which
-            // is what CPython expects; the arena frees it when the call returns.
-            MemorySegment cSource = arena.allocateFrom(source);
-            if (PyRun_SimpleStringFlags(cSource, MemorySegment.NULL) != 0) {
-                throw new PythonException("Python code raised an exception (traceback printed to stderr)");
+            // Both return borrowed references: nothing to release.
+            MemorySegment main = PyImport_AddModule(arena.allocateFrom("__main__"));
+            if (main.equals(MemorySegment.NULL)) {
+                throw pythonError("could not get the __main__ module");
             }
+            MemorySegment globals = PyModule_GetDict(main);
+
+            // allocateFrom copies the Java string into native memory as NUL-terminated
+            // UTF-8, which is what CPython expects; the arena frees it afterwards.
+            MemorySegment code = Py_CompileString(arena.allocateFrom(source), arena.allocateFrom("<string>"), Py_file_input());
+            if (code.equals(MemorySegment.NULL)) {
+                throw pythonError("Python code failed to compile");
+            }
+            MemorySegment result = PyEval_EvalCode(code, globals, globals);
+            Py_DecRef(code);
+            if (result.equals(MemorySegment.NULL)) {
+                throw pythonError("Python code raised an exception");
+            }
+            Py_DecRef(result);
         }
+    }
+
+    /** Prints and clears the pending Python exception, returning a Java one to throw. */
+    private static PythonException pythonError(String message) {
+        PyErr_Print();
+        return new PythonException(message + " (traceback printed to stderr)");
     }
 
     /**
@@ -89,33 +122,6 @@ public final class EmbeddedPython implements AutoCloseable {
         closed = true;
         if (Py_FinalizeEx() < 0) {
             throw new PythonException("Py_FinalizeEx failed to flush buffered data");
-        }
-    }
-
-    /**
-     * Makes libpython's symbols globally visible.
-     *
-     * <p>{@code System.loadLibrary} (used by the generated bindings) opens
-     * libpython with {@code RTLD_LOCAL}. C extension modules such as
-     * {@code math} expect to resolve symbols like {@code PyExc_StopIteration}
-     * from the process's global namespace, so without this even
-     * {@code import math} fails with "undefined symbol". Re-opening the
-     * already-loaded library with {@code RTLD_GLOBAL} fixes that.
-     */
-    private static void exportLibPythonSymbols() {
-        try (Arena arena = Arena.ofConfined()) {
-            // Ask the dynamic linker which file the loaded libpython came from.
-            MemorySegment symbol = SymbolLookup.loaderLookup().findOrThrow("Py_InitializeEx");
-            MemorySegment info = Dl_info.allocate(arena);
-            if (dladdr(symbol, info) == 0) {
-                throw new IllegalStateException("dladdr could not locate libpython");
-            }
-            MemorySegment path = Dl_info.dli_fname(info);
-            // RTLD_NOLOAD: only promote the existing mapping, never load a second copy.
-            if (dlopen(path, RTLD_NOW() | RTLD_NOLOAD() | RTLD_GLOBAL()).equals(MemorySegment.NULL)) {
-                throw new IllegalStateException(
-                        "dlopen(" + path.getString(0) + ") failed: " + dlerror().getString(0));
-            }
         }
     }
 

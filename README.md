@@ -1,15 +1,20 @@
-# ffm-proto: embedding CPython 3.12 in Java 25 with FFM
+# ffm-proto: embedding CPython in Java 25 with FFM
 
-This example starts a CPython 3.12 interpreter in a Java 25 program, runs a
-Python `print` statement, and finalizes the interpreter again. It uses the
+This example starts a CPython interpreter in a Java 25 program, runs a Python
+`print` statement, and finalizes the interpreter again. It uses the
 [Foreign Function & Memory API](https://openjdk.org/jeps/454) (FFM) through
 bindings that [jextract](https://github.com/openjdk/jextract) generates from
 `Python.h`. There is no JNI and no C code to compile.
 
+The bindings are generated from the Python 3.12 headers but restricted to
+CPython's [Stable ABI](https://docs.python.org/3/c-api/stable.html). So any
+libpython 3.12 or later works, and the program picks one when it starts:
+
 ```console
-$ ./gradlew run -q
+$ ./gradlew run -q -Ppython.executable=python3.14
 Java: starting embedded Python
-Hello from Python 3.12.14, embedded in Java via FFM!
+Java: embedding /nix/store/lb41b0anx1f98y9y5s9mdv97gjgsq740-python3-3.14.7/lib/libpython3.14.so.1.0
+Hello from Python 3.14.7, embedded in Java via FFM!
 Java: Python finalized
 ```
 
@@ -18,26 +23,51 @@ Java: Python finalized
 | To…                              | You need                                                                  |
 |----------------------------------|---------------------------------------------------------------------------|
 | compile (`./gradlew assemble`)   | any JDK 17+ to launch Gradle; Gradle provisions JDK 25 if it isn't installed |
-| run or test                      | the CPython 3.12 shared library, `libpython3.12.so`                       |
+| run or test                      | Python 3.12 or later, built with a shared libpython (`--enable-shared`)   |
 | regenerate the bindings          | [jextract](https://jdk.java.net/jextract/) and the Python 3.12 headers    |
 
-On Debian or Ubuntu, `apt install python3.12-dev` covers both of the last two
-rows. It also supplies the unversioned `libpython3.12.so` symlink that
-`System.loadLibrary` needs. The build asks the interpreter named by the Gradle
-property `python.executable` (default `python3.12`, see `gradle.properties`)
-where its headers and library are, so a different install only needs:
+On Debian or Ubuntu, the runtime needs the `libpython3.X` package (the
+versioned `libpython3.X.so.1.0` is enough). Regenerating needs
+`python3.12-dev`.
+
+Only Linux has been tested, with Python 3.12, 3.13 and 3.14.
+
+### Choosing the Python at runtime
+
+`LibPython` resolves the libpython to embed when the program starts:
+
+1. `-Dpython.library=/path/to/libpython3.X.so`, if set.
+2. Otherwise, it asks the interpreter `-Dpython.executable` (default
+   `python3` on the `PATH`) through `sysconfig` where its shared library is.
+
+It then checks that the loaded library's `Py_Version` is 3.12 or later, so a
+3.11 library fails with a clear message rather than a crash. `run` and `test`
+forward both properties from Gradle properties of the same name:
 
 ```sh
-./gradlew run -Ppython.executable=/opt/python3.12/bin/python3.12
+./gradlew run -Ppython.executable=/opt/python3.13/bin/python3.13
+./gradlew test -Ppython.library=/usr/lib/x86_64-linux-gnu/libpython3.14.so.1.0
+JAVA_OPTS=-Dpython.executable=python3.14 build/install/ffm-proto/bin/ffm-proto
 ```
 
-Only Linux has been tested. macOS needs at least a different library name
-(`libpython3.12.dylib`, or a framework build).
+The resolved libpython must be built with `--enable-shared`. Distro and Nix
+Pythons are; pyenv's default builds and some others aren't, and `LibPython`
+says so when it runs into one.
+
+**Virtual environments.** Pointing `python.executable` at a venv's `python`
+works, but it selects the venv's *base* installation. The embedded
+interpreter's `sys.prefix` is the base install, so the venv's site-packages
+aren't on `sys.path`. Add them yourself, for example with `site.addsitedir`.
 
 ### With Nix
 
 `flake.nix` provides a dev shell (Linux) with everything above: JDK 25,
-jextract and Python 3.12.
+jextract and Python 3.12, which is `python3` in the shell. To try a newer
+Python, bring it in too:
+
+```sh
+nix shell nixpkgs#python314 -c nix develop -c ./gradlew run -Ppython.executable=python3.14
+```
 
 ```sh
 nix develop
@@ -69,6 +99,7 @@ src/main/jextract/                generated bindings (committed, do not edit)
 src/main/java/                    module com.example.ffm.python
   com/example/ffm/python/
     EmbeddedPython.java           AutoCloseable wrapper: start / exec / close
+    LibPython.java                finds, loads and checks libpython at runtime
     Main.java                     the demo
 src/test/java/                    lifecycle test
 ```
@@ -83,23 +114,35 @@ bindings can be reviewed in diffs. To regenerate them:
 ./gradlew jextract
 ```
 
+The headers come from the interpreter named by the Gradle property
+`jextract.python` (default `python3.12`, in `gradle.properties`). It should
+stay the *oldest* supported version.
+
 The task generates only the symbols listed in `jextract/capi.symbols`, a
-jextract argument file. To bind more of the C API, add lines to it. Run
-`jextract --dump-includes all.symbols '<Python.h>' -I <include dir>` to list
-every symbol on offer. Function-like macros can't be extracted. For example,
-`PyRun_SimpleString(s)` is a macro for `PyRun_SimpleStringFlags(s, NULL)`, so
-bind `PyRun_SimpleStringFlags` instead.
+jextract argument file. To bind more of the C API, add lines to it. Two
+headers are extracted into one class, `com.example.ffm.python.capi.CApi`:
 
-Two headers are extracted into one class, `com.example.ffm.python.capi.CApi`:
-
-- `<Python.h>`: `Py_InitializeEx`, `Py_IsInitialized`, `PyRun_SimpleStringFlags`
-  and `Py_FinalizeEx`.
-- `<dlfcn.h>`: `dladdr`, `dlopen`, `Dl_info` and `RTLD_*`. See
+- `<Python.h>`, with `Py_LIMITED_API=0x030C0000` defined. CPython then exposes
+  only the Stable ABI as of 3.12, the functions it promises to keep in every
+  later 3.x. So a symbol jextract can't find is one that newer Pythons
+  wouldn't guarantee anyway. For example, `PyRun_SimpleString` isn't in the
+  Stable ABI, so `EmbeddedPython.exec` uses `Py_CompileString` and
+  `PyEval_EvalCode` instead.
+- `<dlfcn.h>`: `dlopen` and `RTLD_*`. See
   [Extension modules](#extension-modules).
 
-jextract is configured with `--use-system-load-library`, so the generated code
-calls `System.loadLibrary("python3.12")` and searches `java.library.path`. The
-`run` and `test` tasks set that path from Python's `sysconfig`.
+To list everything on offer:
+
+```sh
+jextract -D Py_LIMITED_API=0x030C0000 -I <include dir> --dump-includes all.symbols '<Python.h>'
+```
+
+Function-like macros can't be extracted. Bind the function behind them
+instead, for example `Py_DecRef` for `Py_DECREF`.
+
+No `--library` is given to jextract. The generated code looks symbols up only
+through `SymbolLookup.loaderLookup()`, which finds whatever library
+`LibPython` has `System.load`ed.
 
 **When libclang can't find the C standard headers.** On mainstream distros
 jextract finds `/usr/include` by itself. Nix and similar setups don't expose
@@ -111,9 +154,11 @@ directories, separated by `:`:
 ./gradlew jextract -Pjextract.includeDirs=/path/to/libc/include
 ```
 
-**jextract occasionally crashes.** About 2 in 50 runs while I developed this,
-jextract (from nixpkgs, jextract 23 on libclang 21) died with a SIGSEGV inside
-libclang and left an `hs_err_pid*.log`. Rerunning works. The task writes into a
+**jextract occasionally crashes.** jextract (from nixpkgs, jextract 23 on
+libclang 21) sometimes dies with a SIGSEGV inside libclang and leaves an
+`hs_err_pid*.log`. It happened in about 2 of 50 generation runs while I
+developed this. `--dump-includes` on the full, unrestricted `Python.h` crashed
+in roughly two thirds of runs. Rerunning works. The task writes into a
 staging directory and syncs into `src/main/jextract` only on success, so a
 crash never damages the committed bindings.
 
@@ -128,12 +173,11 @@ crash never damages the committed bindings.
 - **The JVM keeps its signal handlers.** The interpreter is started with
   `Py_InitializeEx(0)` rather than `Py_Initialize()`, so Python doesn't install
   its own handlers for signals like SIGINT.
-- <a id="extension-modules"></a>**Extension modules.** `System.loadLibrary`
-  opens libpython with `RTLD_LOCAL`. C extension modules such as `math` resolve
+- <a id="extension-modules"></a>**Extension modules.** `System.load` opens
+  libpython with `RTLD_LOCAL`. C extension modules such as `math` resolve
   symbols like `PyExc_StopIteration` from the global namespace, so without a
-  fix even `import math` fails with "undefined symbol". `EmbeddedPython`
-  re-opens the already-loaded libpython with
-  `RTLD_NOW | RTLD_NOLOAD | RTLD_GLOBAL`, finding its path with `dladdr`.
+  fix even `import math` fails with "undefined symbol". `LibPython` re-opens
+  the already-loaded libpython with `RTLD_NOW | RTLD_NOLOAD | RTLD_GLOBAL`.
 - **Use one thread, and start the interpreter once.** The thread that
   initializes CPython holds the GIL, so `EmbeddedPython` refuses calls from any
   other thread. Supporting other threads would mean binding
@@ -145,7 +189,11 @@ crash never damages the committed bindings.
   that output until finalization, so it can interleave with Java's output in
   unexpected ways.
 - **Memory.** Java strings are copied into native memory as NUL-terminated
-  UTF-8 in a confined `Arena`, which frees them when the call returns.
+  UTF-8 in a confined `Arena`, which frees them when the call returns. Python
+  objects returned as new references (the compiled code and its result) are
+  released with `Py_DecRef`.
+- **`SystemExit`.** As with `PyRun_SimpleString`, an uncaught `SystemExit` in
+  `exec` reaches `PyErr_Print`, which exits the process, JVM included.
 
 ## Build
 
