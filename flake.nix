@@ -38,7 +38,12 @@
             # under Nix; it honours CPATH, so `./gradlew jextract` just works.
             CPATH = "${pkgs.glibc.dev}/include";
 
-            shellHook = gradleWrapper.isolatedHomeHook + gradleWrapper.warmupHook;
+            # nixpkgs' Python setup hook exports build-time defaults: PYTHONPATH
+            # (python312's site-packages, which would leak into any other Python
+            # this shell runs or embeds), PYTHONHASHSEED=0 and PYTHONNOUSERSITE=1.
+            shellHook = gradleWrapper.isolatedHomeHook + gradleWrapper.warmupHook + ''
+              unset PYTHONPATH PYTHONHASHSEED PYTHONNOUSERSITE
+            '';
           };
         });
     };
