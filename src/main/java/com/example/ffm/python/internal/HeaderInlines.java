@@ -39,14 +39,19 @@ final class HeaderInlines {
     }
 
     /**
-     * {@code Py_TYPE} before 3.14. {@code PyObject_Type} returns a new reference to
-     * the type; releasing it straight away leaves the same borrowed reference
-     * {@code Py_TYPE} returns, kept alive by the object itself.
+     * {@code Py_TYPE} before 3.14, returning a <b>borrowed</b> reference as
+     * {@code Py_TYPE} does.
+     *
+     * <p>{@code PyObject_Type} returns a <em>new</em> reference to the same type.
+     * Releasing it at once turns it into a borrowed one: the object holds a strong
+     * reference to its type, so the type stays alive as long as the object does
+     * (and keeps its type: assigning {@code __class__} would drop that reference,
+     * exactly as for the real {@code Py_TYPE}'s result).
      */
     static PyObject.Type pyTypeFallback(PyObject object) {
-        try (NewReference<PyObject.Type> type = NewReference.adopt(new PyObject.Type(PyObject_Type(object.segment())))) {
-            return type.get();
-        }
+        PyObject.Type type = new PyObject.Type(PyObject_Type(object.segment()));
+        Py.decRef(type); // our extra reference; the object's own keeps the type alive
+        return type;
     }
 
     /** {@code Py_IS_TYPE} before 3.15: the header inline's definition. */
