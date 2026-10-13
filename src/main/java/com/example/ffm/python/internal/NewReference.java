@@ -8,7 +8,7 @@ import java.util.function.Consumer;
  * exactly once, on {@link #close()}: use it with try-with-resources.
  *
  * <p>CPython calls this a <em>new reference</em>: what most functions that return
- * an object return. The typed wrappers in {@link Py} return one where CPython does;
+ * an object return. The methods on {@link PyObject} return one where CPython does;
  * to keep a borrowed reference alive, make one with {@link #incRef}.
  *
  * <p>Not thread-safe, and like every CPython call, {@code close()} must happen while

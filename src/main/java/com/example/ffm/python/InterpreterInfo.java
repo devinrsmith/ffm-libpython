@@ -1,6 +1,5 @@
 package com.example.ffm.python;
 
-import com.example.ffm.python.internal.Py;
 import com.example.ffm.python.internal.Py312;
 import com.example.ffm.python.internal.PyInterpreterState;
 import com.example.ffm.python.internal.PyObject;
@@ -40,21 +39,21 @@ public record InterpreterInfo(long id, boolean main, long stateAddress, long thr
      * the two calls.
      */
     static InterpreterInfo current() {
-        PyInterpreterState interpreter = Py.interpreterStateGet();
-        PyThreadState threadState = Py.threadStateGet();
+        PyInterpreterState interpreter = PyInterpreterState.current();
+        PyThreadState threadState = PyThreadState.current();
         // Sanity check: the attached thread state belongs to this interpreter.
-        if (!Py.threadStateGetInterpreter(threadState).equals(interpreter)) {
+        if (!threadState.interpreter().equals(interpreter)) {
             throw new IllegalStateException("Thread state does not belong to the current interpreter");
         }
         // Borrowed from the interpreter (created on first use); empty only if CPython
         // could not allocate it.
-        Optional<PyObject.Dict> dict = Py.interpreterStateGetDict(interpreter);
+        Optional<PyObject.Dict> dict = interpreter.dict();
         return new InterpreterInfo(
-                Py.interpreterStateGetId(interpreter),
+                interpreter.id(),
                 interpreter.equals(Py312.interpreterStateMain()),
                 interpreter.segment().address(),
-                Py.threadStateGetId(threadState),
-                dict.isPresent() ? OptionalLong.of(Py.dictSize(dict.get())) : OptionalLong.empty());
+                threadState.id(),
+                dict.stream().mapToLong(PyObject.Dict::size).findFirst());
     }
 
     @Override

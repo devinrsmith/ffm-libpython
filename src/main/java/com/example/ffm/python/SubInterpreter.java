@@ -1,6 +1,5 @@
 package com.example.ffm.python;
 
-import com.example.ffm.python.internal.Py;
 import com.example.ffm.python.internal.PyThreadState;
 
 /**
@@ -43,12 +42,7 @@ public final class SubInterpreter implements AutoCloseable {
     /** Diagnostics about this sub-interpreter, from {@code PyInterpreterState_Get*()}. */
     public InterpreterInfo interpreterInfo() {
         checkUsable();
-        Py.evalRestoreThread(threadState);
-        try {
-            return InterpreterInfo.current();
-        } finally {
-            Py.evalSaveThread();
-        }
+        return threadState.callAttached(InterpreterInfo::current);
     }
 
     /**
@@ -61,12 +55,7 @@ public final class SubInterpreter implements AutoCloseable {
     public void exec(String source) {
         checkUsable();
         // Takes this interpreter's GIL: its own, or the main one if shared.
-        Py.evalRestoreThread(threadState);
-        try {
-            PythonCode.run(source);
-        } finally {
-            Py.evalSaveThread();
-        }
+        threadState.runAttached(() -> PythonCode.run(source));
     }
 
     /** Ends the sub-interpreter, releasing its modules (and its GIL, if its own). */
@@ -77,9 +66,9 @@ public final class SubInterpreter implements AutoCloseable {
         }
         checkUsable();
         closed = true;
-        Py.evalRestoreThread(threadState);
+        threadState.attach();
         // Requires its thread state to be current; leaves no current thread state.
-        Py.endInterpreter(threadState);
+        threadState.endInterpreter();
         parent.ended(this);
     }
 

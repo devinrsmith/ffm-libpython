@@ -16,7 +16,6 @@ import static com.example.ffm.python.capi.stable.CApi.Py_IsInitialized;
 import static com.example.ffm.python.capi.stable.CApi.Py_SetProgramName;
 
 import com.example.ffm.python.internal.GilState;
-import com.example.ffm.python.internal.Py;
 import com.example.ffm.python.internal.Py312;
 import com.example.ffm.python.internal.PyThreadState;
 import java.lang.foreign.Arena;
@@ -97,7 +96,7 @@ public final class EmbeddedPython implements AutoCloseable {
         Py_InitializeEx(0);
         // Release the GIL, so that other threads can attach (e.g. to create
         // sub-interpreters) while this one is not running Python code.
-        return new EmbeddedPython(selection, Py.evalSaveThread());
+        return new EmbeddedPython(selection, PyThreadState.detachCurrent());
     }
 
     /** Whether a Python interpreter is currently initialized in this process. */
@@ -142,8 +141,7 @@ public final class EmbeddedPython implements AutoCloseable {
     public SequencedMap<String, String> configuration() {
         checkUsable();
         SequencedMap<String, String> configuration = new LinkedHashMap<>();
-        Py.evalRestoreThread(threadState);
-        try {
+        threadState.runAttached(() -> {
             // Path configuration: wchar_t strings owned by CPython.
             put(configuration, "Py_GetProgramName", Py_GetProgramName(), WCHAR_CHARSET);
             put(configuration, "Py_GetProgramFullPath", Py_GetProgramFullPath(), WCHAR_CHARSET);
@@ -156,9 +154,7 @@ public final class EmbeddedPython implements AutoCloseable {
             put(configuration, "Py_GetPlatform", Py_GetPlatform(), StandardCharsets.UTF_8);
             put(configuration, "Py_GetCompiler", Py_GetCompiler(), StandardCharsets.UTF_8);
             put(configuration, "Py_GetBuildInfo", Py_GetBuildInfo(), StandardCharsets.UTF_8);
-        } finally {
-            Py.evalSaveThread();
-        }
+        });
         return configuration;
     }
 
@@ -171,12 +167,7 @@ public final class EmbeddedPython implements AutoCloseable {
     /** Diagnostics about the main interpreter, from {@code PyInterpreterState_Get*()}. */
     public InterpreterInfo interpreterInfo() {
         checkUsable();
-        Py.evalRestoreThread(threadState);
-        try {
-            return InterpreterInfo.current();
-        } finally {
-            Py.evalSaveThread();
-        }
+        return threadState.callAttached(InterpreterInfo::current);
     }
 
     /**
@@ -191,12 +182,7 @@ public final class EmbeddedPython implements AutoCloseable {
      */
     public void exec(String source) {
         checkUsable();
-        Py.evalRestoreThread(threadState);
-        try {
-            PythonCode.run(source);
-        } finally {
-            Py.evalSaveThread();
-        }
+        threadState.runAttached(() -> PythonCode.run(source));
     }
 
     /**
@@ -217,7 +203,7 @@ public final class EmbeddedPython implements AutoCloseable {
      * @throws PythonException if CPython fails to create it
      */
     public SubInterpreter newSubInterpreter() {
-        return newSubInterpreter(InterpreterConfig.legacy(), Py::newInterpreter);
+        return newSubInterpreter(InterpreterConfig.legacy(), PyThreadState::newInterpreter);
     }
 
     /**
@@ -257,9 +243,9 @@ public final class EmbeddedPython implements AutoCloseable {
             }
             // Creating a sub-interpreter requires a current thread state. Reuses the
             // owner's thread state when called from the owner thread.
-            GilState gilState = Py.gilStateEnsure();
+            GilState gilState = GilState.ensure();
             try {
-                PyThreadState mainState = Py.threadStateGet();
+                PyThreadState mainState = PyThreadState.current();
                 // On failure, CPython restores mainState as the current thread state.
                 PyThreadState subState = create.get();
                 // Both C functions document that the new thread state becomes the
@@ -267,7 +253,7 @@ public final class EmbeddedPython implements AutoCloseable {
                 // was released; or the shared one). Check that before relying on it:
                 // detaching, and later ending, the wrong thread state would corrupt
                 // CPython.
-                PyThreadState current = Py.threadStateGet();
+                PyThreadState current = PyThreadState.current();
                 if (subState.equals(mainState) || !subState.equals(current)) {
                     throw new IllegalStateException(String.format(
                             "Sub-interpreter creation returned thread state 0x%x, but 0x%x is current"
@@ -276,13 +262,13 @@ public final class EmbeddedPython implements AutoCloseable {
                 }
                 // Detach it, then return to the main interpreter so that
                 // PyGILState_Release can undo PyGILState_Ensure.
-                Py.evalSaveThread();
-                Py.evalRestoreThread(mainState);
+                PyThreadState.detachCurrent();
+                mainState.attach();
                 SubInterpreter subInterpreter = new SubInterpreter(this, subState, config);
                 subInterpreters.add(subInterpreter);
                 return subInterpreter;
             } finally {
-                Py.gilStateRelease(gilState);
+                gilState.release();
             }
         }
     }
@@ -309,7 +295,7 @@ public final class EmbeddedPython implements AutoCloseable {
                 throw new IllegalStateException(subInterpreters.size() + " sub-interpreter(s) still open");
             }
             closed = true;
-            Py.evalRestoreThread(threadState);
+            threadState.attach();
             if (Py_FinalizeEx() < 0) {
                 throw new PythonException("Py_FinalizeEx failed to flush buffered data");
             }

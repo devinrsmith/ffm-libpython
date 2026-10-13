@@ -16,7 +16,7 @@ import java.lang.foreign.MemorySegment;
 
 /**
  * Typed wrappers for CPython's version-specific API, as bound from the 3.12 headers
- * ({@code capi.py312.CPython312}); same conventions as {@link Py}.
+ * ({@code capi.py312.CPython312}); same conventions as {@link PyObject}.
  */
 public final class Py312 {
 

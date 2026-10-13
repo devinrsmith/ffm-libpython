@@ -132,10 +132,11 @@ src/main/java/                    module com.example.ffm.python
     InterpreterInfo.java          PyInterpreterState_Get*() diagnostics, per interpreter
     PythonCode.java               runs source in the current interpreter
   com/example/ffm/python/internal/  typed layer over the bindings (not exported)
-    PyObject.java                 sealed: Module, Dict, Code, Any records (borrowed)
+    PyObject.java                 sealed: Module, Dict, Code, Any records, with their functions
     NewReference.java             an owned reference: AutoCloseable, Py_DecRef on close
-    PyThreadState.java, PyInterpreterState.java, GilState.java
-    Py.java, Py312.java           typed wrappers for capi.stable / capi.py312
+    PyThreadState.java            ...also PyInterpreterState, GilState: records with their functions
+    Py312.java                    the version-specific functions (capi.py312)
+    Py.java                       shared plumbing: incRef / decRef, error reporting
     LibPython.java                finds, loads and checks libpython at runtime
     PythonVersion.java            Py_Version / PY_VERSION_HEX, unpacked
     Main.java                     the demo
@@ -387,9 +388,12 @@ own GIL, running code never contends for the main GIL.
 
 - **A typed layer over the generated bindings.** Outside the `internal`
   package, no code calls a CPython function that takes or returns an object,
-  thread state or interpreter state directly. It goes through `Py` (Stable ABI)
-  or `Py312` (3.12-specific), whose wrappers use records instead of raw
-  `MemorySegment`s:
+  thread state or interpreter state directly. Each Stable ABI function lives on
+  the record it applies to, e.g. `module.dict()`, `code.eval(globals, locals)`,
+  `dict.size()`, `threadState.attach()`, `interpreter.id()`, with static
+  factories such as `PyObject.Code.compile(...)` and `PyThreadState.current()`.
+  The version-specific functions stay apart, in `Py312`. The records use only
+  the Stable ABI:
   - **Objects:** `PyObject` is a sealed interface over `PyObject.Module`,
     `Dict`, `Code` and `Any`. A **bare record is a borrowed reference**: usable,
     never released. A **`NewReference<T>` is an owned one**, released with
@@ -399,10 +403,10 @@ own GIL, running code never contends for the main GIL.
     reference from a borrowed one:
 
     ```java
-    try (NewReference<PyObject.Module> main = NewReference.incRef(Py.importAddModule("__main__"))) {
-        PyObject.Dict globals = Py.moduleGetDict(main.get());  // borrowed from main
-        try (NewReference<PyObject.Code> code = Py.compileFile(source, "<string>")) {
-            Py.evalCode(code.get(), globals, globals).close();
+    try (NewReference<PyObject.Module> main = NewReference.incRef(PyObject.Module.importAdd("__main__"))) {
+        PyObject.Dict globals = main.get().dict();  // borrowed from main
+        try (NewReference<PyObject.Code> code = PyObject.Code.compile(source, "<string>")) {
+            code.get().eval(globals, globals).close();
         }
     }
     ```
@@ -410,7 +414,9 @@ own GIL, running code never contends for the main GIL.
     `PyGILState_Ensure` token get records too (`PyThreadState`,
     `PyInterpreterState`, `GilState`). They aren't refcounted, but a main
     thread state can no longer be confused with a sub-interpreter's, or a GIL
-    token with any other `int`.
+    token with any other `int`. `threadState.runAttached(...)` and
+    `callAttached(...)` attach for the duration of an action and always detach
+    afterwards, so no call site can forget the `finally`.
   - **Errors:** records reject `NULL`. Wrappers turn CPython's "`NULL` plus an
     exception" into a `PythonException`, after printing and clearing the
     exception.

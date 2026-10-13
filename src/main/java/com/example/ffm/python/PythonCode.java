@@ -1,7 +1,6 @@
 package com.example.ffm.python;
 
 import com.example.ffm.python.internal.NewReference;
-import com.example.ffm.python.internal.Py;
 import com.example.ffm.python.internal.PyObject;
 
 /** Runs source code in whichever interpreter the calling thread is attached to. */
@@ -21,12 +20,12 @@ final class PythonCode {
         // __main__ is borrowed from sys.modules, which the code we are about to run
         // can change: `del sys.modules["__main__"]` would free it mid-run. Hold a
         // strong reference until we are done, as PyImport_AddModuleRef (3.13+) would.
-        try (NewReference<PyObject.Module> main = NewReference.incRef(Py.importAddModule("__main__"))) {
+        try (NewReference<PyObject.Module> main = NewReference.incRef(PyObject.Module.importAdd("__main__"))) {
             // Borrowed from main, which we hold.
-            PyObject.Dict globals = Py.moduleGetDict(main.get());
-            try (NewReference<PyObject.Code> code = Py.compileFile(source, "<string>")) {
+            PyObject.Dict globals = main.get().dict();
+            try (NewReference<PyObject.Code> code = PyObject.Code.compile(source, "<string>")) {
                 // Running a module evaluates to None: release the result right away.
-                Py.evalCode(code.get(), globals, globals).close();
+                code.get().eval(globals, globals).close();
             }
         }
     }
