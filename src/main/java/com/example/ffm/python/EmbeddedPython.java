@@ -1,8 +1,8 @@
 package com.example.ffm.python;
 
-import static com.example.ffm.python.capi.cpython.CPython.PyInterpreterConfig_OWN_GIL;
-import static com.example.ffm.python.capi.cpython.CPython.PyStatus_Exception;
-import static com.example.ffm.python.capi.cpython.CPython.Py_NewInterpreterFromConfig;
+import static com.example.ffm.python.capi.py312.CPython312.PyInterpreterConfig_OWN_GIL;
+import static com.example.ffm.python.capi.py312.CPython312.PyStatus_Exception;
+import static com.example.ffm.python.capi.py312.CPython312.Py_NewInterpreterFromConfig;
 import static com.example.ffm.python.capi.stable.CApi.PyEval_RestoreThread;
 import static com.example.ffm.python.capi.stable.CApi.PyEval_SaveThread;
 import static com.example.ffm.python.capi.stable.CApi.PyGILState_Ensure;
@@ -24,8 +24,8 @@ import static com.example.ffm.python.capi.stable.CApi.Py_IsInitialized;
 import static com.example.ffm.python.capi.stable.CApi.Py_SetProgramName;
 import static java.lang.foreign.ValueLayout.ADDRESS;
 
-import com.example.ffm.python.capi.cpython.PyInterpreterConfig;
-import com.example.ffm.python.capi.cpython.PyStatus;
+import com.example.ffm.python.capi.py312.PyInterpreterConfig;
+import com.example.ffm.python.capi.py312.PyStatus;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteOrder;

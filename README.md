@@ -120,10 +120,10 @@ build-logic/                      included build: the `JextractTask` type and pl
 flake.nix                         Nix dev shell (JDK 25, jextract, Python 3.12, vendored Gradle)
 gradle/libs.versions.toml         version catalog
 jextract/stable.symbols           C symbols to bind from the Stable ABI
-jextract/cpython.symbols          ...and from CPython's version-specific API
+jextract/cpython312.symbols       ...and from CPython 3.12's version-specific API
 src/main/jextract/                generated bindings (committed, do not edit)
   .../capi/stable/                  CApi: Stable ABI, plus <dlfcn.h>
-  .../capi/cpython/                 CPython: sub-interpreter creation, PyInterpreterState_Main
+  .../capi/py312/                   CPython312: sub-interpreter creation, PyInterpreterState_Main
 src/main/java/                    module com.example.ffm.python
   com/example/ffm/python/
     EmbeddedPython.java           the main interpreter: start / exec / close
@@ -177,15 +177,25 @@ jextract -D Py_LIMITED_API=0x030C0000 -I <include dir> --dump-includes all.symbo
 Function-like macros can't be extracted. Bind the function behind them
 instead, for example `Py_DecRef` for `Py_DECREF`.
 
-**`jextractCPython`** reads `jextract/cpython.symbols` and generates
-`com.example.ffm.python.capi.cpython.CPython`. This is the exception:
+**`jextractCPython312`** reads `jextract/cpython312.symbols` and generates
+`com.example.ffm.python.capi.py312.CPython312`. This is the exception:
 `<Python.h>` without `Py_LIMITED_API`, for what the Stable ABI lacks:
 [sub-interpreters with their own GIL](#sub-interpreters), and
-`PyInterpreterState_Main()` to identify the main interpreter. These bindings are
-tied to the 3.12 headers, so they're kept to symbols whose declarations and
-struct layouts are unchanged in every supported version: `PyInterpreterConfig`
-and `PyStatus` are identical from 3.12 through 3.15. A future Python that
-changes them would need these bindings regenerated or guarded per version.
+`PyInterpreterState_Main()` to identify the main interpreter. Nothing here is
+covered by CPython's ABI promises, so the version is in every name: the
+symbols file, the task, the package (`py312`) and the class (`CPython312`,
+which is what shows at call sites, since they use static imports).
+
+- **The build enforces the version.** `jextractCPython312` fails unless
+  `jextract.python` is a 3.12 interpreter, so the bindings can't be silently
+  regenerated from other headers. The Stable ABI task accepts any version from
+  3.12 on: newer headers produce the same bindings, only in a different
+  declaration order.
+- **The bindings are limited to symbols that match across versions.** Only
+  symbols whose declarations and struct layouts are unchanged in every
+  supported version are bound. `PyInterpreterConfig` and `PyStatus` are
+  identical from 3.12 through 3.15. A future Python that changes them would
+  need a `py3XX` package of its own, chosen at runtime by `Py_Version`.
 
 No `--library` is given to jextract. The generated code looks symbols up only
 through `SymbolLookup.loaderLookup()`, which finds whatever library

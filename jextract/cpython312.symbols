@@ -1,0 +1,20 @@
+# jextract argument file: CPython's version-specific (non-Stable-ABI) API, as
+# declared by the Python 3.12 headers. Generates com.example.ffm.python.capi.py312
+# (task jextractCPython312), which the build refuses to generate from any other
+# version's headers.
+#
+# Unlike stable.symbols, Python.h is extracted here without Py_LIMITED_API, so
+# nothing here is covered by CPython's ABI promises. Only add symbols whose
+# declarations and struct layouts are unchanged in every supported version;
+# verified so far for 3.12, 3.13, 3.14 and 3.15. PyInterpreterConfig and PyStatus
+# are identical across them.
+
+# Sub-interpreters with their own GIL (3.12+).
+--include-function Py_NewInterpreterFromConfig
+--include-struct PyInterpreterConfig
+--include-constant PyInterpreterConfig_OWN_GIL
+--include-struct PyStatus
+--include-function PyStatus_Exception
+
+# Interpreter diagnostics: which interpreter is the main one (unchanged 3.12-3.15).
+--include-function PyInterpreterState_Main

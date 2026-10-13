@@ -1,6 +1,6 @@
 package com.example.ffm.python;
 
-import static com.example.ffm.python.capi.cpython.CPython.PyInterpreterState_Main;
+import static com.example.ffm.python.capi.py312.CPython312.PyInterpreterState_Main;
 import static com.example.ffm.python.capi.stable.CApi.PyDict_Size;
 import static com.example.ffm.python.capi.stable.CApi.PyInterpreterState_Get;
 import static com.example.ffm.python.capi.stable.CApi.PyInterpreterState_GetDict;
