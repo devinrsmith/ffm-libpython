@@ -41,8 +41,8 @@ final class LibPython {
     static final String EXECUTABLE_PROPERTY = "python.executable";
     static final String DEFAULT_EXECUTABLE = "python3";
 
-    /** The oldest supported version, in {@code PY_VERSION_HEX} format: 3.12. */
-    private static final long MINIMUM_VERSION = 0x030C0000L;
+    /** The oldest supported version: the one the bindings are generated from. */
+    static final PythonVersion MINIMUM_VERSION = PythonVersion.of(3, 12, 0);
 
     /**
      * Prints the path of the interpreter's shared libpython, then its executable.
@@ -160,23 +160,20 @@ final class LibPython {
         // Py_Version itself only exists from 3.11 on.
         if (SymbolLookup.loaderLookup().find("Py_Version").isEmpty()) {
             throw new IllegalStateException(
-                    library + " is older than Python 3.11; Python " + format(MINIMUM_VERSION) + " or later is required");
+                    library + " is older than Python 3.11; Python " + MINIMUM_VERSION + " or later is required");
         }
-        long version = Py_Version();
-        if (version < MINIMUM_VERSION) {
+        PythonVersion version = PythonVersion.fromHex(Py_Version());
+        // 3.12 pre-releases count as 3.12: compare major.minor only.
+        if (version.major() < MINIMUM_VERSION.major()
+                || (version.major() == MINIMUM_VERSION.major() && version.minor() < MINIMUM_VERSION.minor())) {
             throw new IllegalStateException(
-                    library + " is Python " + format(version) + "; Python " + format(MINIMUM_VERSION) + " or later is required");
+                    library + " is Python " + version + "; Python " + MINIMUM_VERSION + " or later is required");
         }
     }
 
-    /** The {@code PY_VERSION_HEX} of the loaded libpython. */
-    static long version() {
+    /** The version of the loaded libpython, from its {@code Py_Version} constant. */
+    static PythonVersion version() {
         load();
-        return Py_Version();
-    }
-
-    /** Formats a {@code PY_VERSION_HEX} value as major.minor.micro. */
-    static String format(long versionHex) {
-        return (versionHex >>> 24 & 0xFF) + "." + (versionHex >>> 16 & 0xFF) + "." + (versionHex >>> 8 & 0xFF);
+        return PythonVersion.fromHex(Py_Version());
     }
 }

@@ -100,6 +100,15 @@ public final class EmbeddedPython implements AutoCloseable {
     }
 
     /**
+     * The version of the embedded libpython, unpacked from its runtime constant
+     * {@code Py_Version} (which, unlike the {@code PY_VERSION_HEX} macro, describes
+     * the library actually loaded rather than the headers compiled against).
+     */
+    public PythonVersion version() {
+        return LibPython.version();
+    }
+
+    /**
      * The python executable this interpreter presents itself as, which determines
      * {@code sys.executable} and {@code sys.prefix}; empty when libpython was
      * given directly with {@code -Dpython.library}.

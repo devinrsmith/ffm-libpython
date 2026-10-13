@@ -40,8 +40,10 @@ class EmbeddedPythonTest {
             String venvPython = Path.of(venv, "bin", "python").toString();
             assertEquals(venvPython, configuration.get("Py_GetProgramName"));
             assertEquals(venvPython, configuration.get("Py_GetProgramFullPath"));
-            assertTrue(configuration.get("Py_GetVersion").startsWith(LibPython.format(LibPython.version()) + " "),
+            // Py_GetVersion() begins with the same version Py_Version encodes.
+            assertTrue(configuration.get("Py_GetVersion").startsWith(python.version() + " "),
                     configuration.get("Py_GetVersion"));
+            assertTrue(python.version().compareTo(PythonVersion.of(3, 12, 0)) >= 0, python.version()::toString);
             assertNotNull(configuration.get("Py_GetPlatform"));
             assertDoesNotThrow(() -> python.exec("assert 6 * 7 == 42"));
             // C extension modules need libpython's symbols to be globally visible.

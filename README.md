@@ -125,6 +125,7 @@ src/main/java/                    module com.example.ffm.python
   com/example/ffm/python/
     EmbeddedPython.java           AutoCloseable wrapper: start / exec / close
     LibPython.java                finds, loads and checks libpython at runtime
+    PythonVersion.java            Py_Version / PY_VERSION_HEX, unpacked
     Main.java                     the demo
 src/test/java/                    lifecycle test
 ```
@@ -201,6 +202,7 @@ $ ./gradlew run -q -Ppython.executable=/home/me/.venv/bin/python
 Java: starting embedded Python
 Java: embedding /nix/store/…-python3-3.15.0/lib/libpython3.15.so.1.0
 Java: as /home/me/.venv/bin/python
+Java: Py_Version = 0x030F00F0 = 3.15.0 (final)
 Java: Python configuration:
   Py_GetProgramName()     = /home/me/.venv/bin/python
   Py_GetProgramFullPath() = /home/me/.venv/bin/python
@@ -217,7 +219,16 @@ sys.prefix = /home/me/.venv
 Java: Python finalized
 ```
 
-There are two groups:
+`EmbeddedPython.version()` returns the `Py_Version` runtime constant as a
+`PythonVersion` record: `major`, `minor`, `micro`, `releaseLevel` (`ALPHA`,
+`BETA`, `CANDIDATE` or `FINAL`, with Python's `sys.version_info` names) and
+`releaseSerial`. Unlike the `PY_VERSION_HEX` macro, which describes the headers
+code was compiled against (3.12 here), `Py_Version` describes the library
+actually loaded. `PythonVersion` also packs back to `hex()`, orders like the
+packed value (`3.14.0a1 < 3.14.0 < 3.14.1`), and prints as Python does
+(`3.12.5rc2`). `LibPython` uses it for the 3.12 minimum check.
+
+The `Py_Get*()` values come in two groups:
 
 - **Path configuration** (`wchar_t *`): `Py_GetProgramName`,
   `Py_GetProgramFullPath`, `Py_GetPythonHome`, `Py_GetPrefix`,
