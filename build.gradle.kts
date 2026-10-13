@@ -10,26 +10,30 @@ java {
 }
 
 // --- Locating Python ---------------------------------------------------------
-// The bindings are generated from the headers of the interpreter named by
-// `jextract.python` (the oldest supported version). Evaluated lazily, only when
+// Each set of bindings is generated from the headers of exactly the Python
+// version in its name, found via the interpreter in the Gradle property
+// `jextract.pythonXYZ` (see gradle.properties). Evaluated lazily, only when
 // a jextract task runs.
 
-// Two lines: the headers' major.minor version, then their directory.
-val pythonHeaders = providers.exec {
-    commandLine(
-        providers.executableOnPath(providers.gradleProperty("jextract.python")).get(),
-        "-c", "import sysconfig; print(sysconfig.get_python_version()); print(sysconfig.get_path('include'))",
-    )
-}.standardOutput.asText.map { it.trim().lines() }
-val pythonIncludeDir = pythonHeaders.map { it[1] }
-
-/** The include directory, provided the headers are exactly Python [version]. */
-fun pythonIncludeDirFor(version: String): Provider<String> = pythonHeaders.map { (actual, dir) ->
-    check(actual == version) {
-        "These bindings must be generated from the Python $version headers, but " +
-            "jextract.python is Python $actual; point it at a $version interpreter"
+/**
+ * The include directory of the interpreter in `jextract.python<version without dot>`,
+ * provided its headers are exactly Python [version].
+ */
+fun pythonIncludeDir(version: String): Provider<String> {
+    val property = "jextract.python" + version.replace(".", "")
+    return providers.exec {
+        commandLine(
+            providers.executableOnPath(providers.gradleProperty(property)).get(),
+            "-c", "import sysconfig; print(sysconfig.get_python_version()); print(sysconfig.get_path('include'))",
+        )
+    }.standardOutput.asText.map { output ->
+        val (actual, dir) = output.trim().lines()
+        check(actual == version) {
+            "These bindings must be generated from the Python $version headers, but " +
+                "$property is Python $actual; point it at a $version interpreter"
+        }
+        dir
     }
-    dir
 }
 
 // --- Bindings ----------------------------------------------------------------
@@ -46,20 +50,29 @@ tasks.withType<JextractTask>().configureEach {
     )
 }
 
-// The Stable ABI: what every libpython >= 3.12 provides.
-tasks.register<JextractTask>("jextractStableAbi") {
-    description = "Generates the Stable ABI bindings (capi.stable)."
+// The Stable ABI at the 3.12 level: what every libpython >= 3.12 provides.
+tasks.register<JextractTask>("jextractStable312") {
+    description = "Generates the Stable ABI bindings at the 3.12 level (capi.stable312)."
     // dlfcn.h supplies dlopen, used to make libpython's symbols global.
     headers = listOf("<Python.h>", "<dlfcn.h>")
-    // Restrict Python.h to the Stable ABI as of 3.12, which every later 3.x
-    // libpython keeps providing.
+    // Restrict Python.h to the Stable ABI as of 3.12.
     defines.add("Py_LIMITED_API=0x030C0000")
-    symbolsFile = layout.projectDirectory.file("jextract/stable.symbols")
-    targetPackage = "com.example.ffm.python.capi.stable"
-    headerClassName = "CApi"
-    // Py_LIMITED_API pins the API level, so newer headers give equivalent bindings
-    // (only the declaration order differs); 3.12 keeps the committed output stable.
-    includeDirs.add(pythonIncludeDir)
+    symbolsFile = layout.projectDirectory.file("jextract/stable312.symbols")
+    targetPackage = "com.example.ffm.python.capi.stable312"
+    headerClassName = "Stable312"
+    includeDirs.add(pythonIncludeDir("3.12"))
+}
+
+// What the Stable ABI added in 3.13, for code that switches on the loaded
+// library's version: only callable when Py_Version >= 3.13 (see README).
+tasks.register<JextractTask>("jextractStable313") {
+    description = "Generates the Stable ABI bindings added at the 3.13 level (capi.stable313)."
+    headers = listOf("<Python.h>")
+    defines.add("Py_LIMITED_API=0x030D0000")
+    symbolsFile = layout.projectDirectory.file("jextract/stable313.symbols")
+    targetPackage = "com.example.ffm.python.capi.stable313"
+    headerClassName = "Stable313"
+    includeDirs.add(pythonIncludeDir("3.13"))
 }
 
 // CPython's version-specific API, for what the Stable ABI lacks, as declared
@@ -71,8 +84,7 @@ tasks.register<JextractTask>("jextractCPython312") {
     symbolsFile = layout.projectDirectory.file("jextract/cpython312.symbols")
     targetPackage = "com.example.ffm.python.capi.py312"
     headerClassName = "CPython312"
-    // Only 3.12 headers: generating these from any other version would mislabel them.
-    includeDirs.add(pythonIncludeDirFor("3.12"))
+    includeDirs.add(pythonIncludeDir("3.12"))
 }
 
 // --- Compilation, running and testing ----------------------------------------

@@ -1,4 +1,6 @@
-# jextract argument file: the C symbols to generate bindings for.
+# jextract argument file: the C symbols to generate bindings for, from the
+# Stable ABI at the 3.12 level. Generates com.example.ffm.python.capi.stable312
+# (task jextractStable312).
 #
 # Python.h is extracted with Py_LIMITED_API set (see build.gradle.kts), so only
 # Stable ABI symbols are visible here: those keep working with any later 3.x

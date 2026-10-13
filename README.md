@@ -119,10 +119,12 @@ like `python` does, so it ended up on a 3.15 interpreter's module search path.
 build-logic/                      included build: the `JextractTask` type and plugin
 flake.nix                         Nix dev shell (JDK 25, jextract, Python 3.12, vendored Gradle)
 gradle/libs.versions.toml         version catalog
-jextract/stable.symbols           C symbols to bind from the Stable ABI
+jextract/stable312.symbols        C symbols to bind from the Stable ABI (3.12 level)
+jextract/stable313.symbols        ...the Stable ABI's 3.13 additions
 jextract/cpython312.symbols       ...and from CPython 3.12's version-specific API
 src/main/jextract/                generated bindings (committed, do not edit)
-  .../capi/stable/                  CApi: Stable ABI, plus <dlfcn.h>
+  .../capi/stable312/               Stable312: Stable ABI at the 3.12 level, plus <dlfcn.h>
+  .../capi/stable313/               Stable313: what the Stable ABI added in 3.13
   .../capi/py312/                   CPython312: sub-interpreter creation, PyInterpreterState_Main
 src/main/java/                    module com.example.ffm.python
   com/example/ffm/python/
@@ -137,6 +139,7 @@ src/main/java/                    module com.example.ffm.python
     PyThreadState.java            ...also PyInterpreterState, GilState: records with their functions
     Py312.java                    the version-specific functions (capi.py312)
     Py.java                       shared plumbing: incRef / decRef, error reporting
+    ApiLevel.java                 the loaded libpython's version, for runtime dispatch
     LibPython.java                finds, loads and checks libpython at runtime
     PythonVersion.java            Py_Version / PY_VERSION_HEX, unpacked
     Main.java                     the demo
@@ -153,18 +156,23 @@ bindings can be reviewed in diffs. To regenerate them:
 ./gradlew jextract
 ```
 
-The headers come from the interpreter named by the Gradle property
-`jextract.python` (default `python3.12`, in `gradle.properties`). It should
-stay the *oldest* supported version.
+`./gradlew jextract` runs three tasks. Each generates only the symbols listed
+in its jextract argument file, into its own package, from the headers of
+exactly the Python version in its name. The headers come from the interpreters
+in the Gradle properties `jextract.python312` and `jextract.python313`
+(`python3.12` and `python3.13` by default, in `gradle.properties`). Each task
+fails unless it gets that version, so no binding can be silently regenerated
+from other headers. To bind more of the C API, add lines to the right file.
+jextract silently skips symbols it can't find, so check the generated code
+afterwards.
 
-`./gradlew jextract` runs two tasks. Each generates only the symbols listed in
-its jextract argument file, into its own package. To bind more of the C API,
-add lines to the right file. jextract silently skips symbols it can't find, so
-check the generated code afterwards.
+| Task | Symbols file | Generates | Headers |
+|---|---|---|---|
+| `jextractStable312` | `stable312.symbols` | `capi.stable312.Stable312` | 3.12, `Py_LIMITED_API=0x030C0000` |
+| `jextractStable313` | `stable313.symbols` | `capi.stable313.Stable313` | 3.13, `Py_LIMITED_API=0x030D0000` |
+| `jextractCPython312` | `cpython312.symbols` | `capi.py312.CPython312` | 3.12, full API |
 
-**`jextractStableAbi`** reads `jextract/stable.symbols` and generates
-`com.example.ffm.python.capi.stable.CApi`. Almost everything comes from here.
-It extracts two headers:
+**`jextractStable312`** covers almost everything. It extracts two headers:
 
 - `<Python.h>`, with `Py_LIMITED_API=0x030C0000` defined. CPython then exposes
   only the Stable ABI as of 3.12, the functions it promises to keep in every
@@ -193,16 +201,15 @@ covered by CPython's ABI promises, so the version is in every name: the
 symbols file, the task, the package (`py312`) and the class (`CPython312`,
 which is what shows at call sites, since they use static imports).
 
-- **The build enforces the version.** `jextractCPython312` fails unless
-  `jextract.python` is a 3.12 interpreter, so the bindings can't be silently
-  regenerated from other headers. The Stable ABI task accepts any version from
-  3.12 on: newer headers produce the same bindings, only in a different
-  declaration order.
 - **The bindings are limited to symbols that match across versions.** Only
   symbols whose declarations and struct layouts are unchanged in every
   supported version are bound. `PyInterpreterConfig` and `PyStatus` are
   identical from 3.12 through 3.15. A future Python that changes them would
   need a `py3XX` package of its own, chosen at runtime by `Py_Version`.
+
+**`jextractStable313`** binds what the Stable ABI added in 3.13, currently
+just `PyImport_AddModuleRef`. See [Switching on the version at
+runtime](#switching-on-the-version-at-runtime).
 
 No `--library` is given to jextract. The generated code looks symbols up only
 through `SymbolLookup.loaderLookup()`, which finds whatever library
@@ -384,6 +391,42 @@ it, `EmbeddedPython` checks that the thread state the function returned is the
 current one and isn't the main interpreter's. `exec` attaches the sub-interpreter's own thread state. With its
 own GIL, running code never contends for the main GIL.
 
+## Switching on the version at runtime
+
+The bindings target the oldest supported version (3.12), but newer CPython
+versions add better functions. Where that matters, the typed wrapper in the
+`internal` package chooses at runtime, based on the loaded library's
+`Py_Version` (`ApiLevel.atLeast(3, 13)`, read once).
+
+The first case is `PyObject.Module.importAddRef`. It always returns a *new*
+reference to a module from `sys.modules`:
+
+- **3.13+** use `PyImport_AddModuleRef`, which CPython added because the old
+  function's borrowed result could be freed by any Python code.
+- **3.12** uses `PyImport_AddModule` and takes the reference itself with
+  `Py_IncRef`.
+
+Callers get the same `NewReference` either way. Probing each version showed
+3.12 taking the fallback, 3.13–3.15 the new function, and every version
+completing.
+
+**This relies on lazy symbol lookup.** A 3.12 libpython doesn't export
+`PyImport_AddModuleRef`, but jextract's generated code looks each function up
+only on its first call, so the binding is harmless until called. So every call
+into `capi.stable313` (or any future newer-level binding) must sit behind an
+`ApiLevel` check.
+
+**Borrowed or new.** A wrapper returns a borrowed reference (a bare record)
+only when it's borrowed from something the caller already holds and Python
+code can't take away, such as `module.dict()`. A reference borrowed from a
+container any Python code can change, such as `sys.modules`, is returned as a
+`NewReference`, as CPython's own 3.13 `...Ref` functions do.
+
+The tests run every path: the matrix covers 3.12's fallback and 3.13–3.15's
+new function. The refcount test catches mistakes on either side: an extra
+reference on the 3.13 path made it fail (5 → 106), and so does a missing one
+on 3.12 (the `__main__` test).
+
 ## Design notes
 
 - **A typed layer over the generated bindings.** Outside the `internal`
@@ -403,7 +446,7 @@ own GIL, running code never contends for the main GIL.
     reference from a borrowed one:
 
     ```java
-    try (NewReference<PyObject.Module> main = NewReference.incRef(PyObject.Module.importAdd("__main__"))) {
+    try (NewReference<PyObject.Module> main = PyObject.Module.importAddRef("__main__")) {
         PyObject.Dict globals = main.get().dict();  // borrowed from main
         try (NewReference<PyObject.Code> code = PyObject.Code.compile(source, "<string>")) {
             code.get().eval(globals, globals).close();

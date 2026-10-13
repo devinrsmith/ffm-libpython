@@ -1,0 +1,11 @@
+# jextract argument file: what the Stable ABI added in 3.13, that this project
+# uses. Generates com.example.ffm.python.capi.stable313 (task jextractStable313)
+# from the 3.13 headers with Py_LIMITED_API=0x030D0000.
+#
+# These symbols do not exist in a 3.12 libpython. The generated code only looks a
+# function up on its first call, so having the bindings is harmless; calling one
+# is not. Only call them after checking that the loaded libpython's Py_Version is
+# at least 3.13 (see internal.ApiLevel).
+
+# 3.13: a new reference, unlike PyImport_AddModule's borrowed one.
+--include-function PyImport_AddModuleRef

@@ -17,10 +17,9 @@ final class PythonCode {
      *     printed the traceback to stderr
      */
     static void run(String source) {
-        // __main__ is borrowed from sys.modules, which the code we are about to run
-        // can change: `del sys.modules["__main__"]` would free it mid-run. Hold a
-        // strong reference until we are done, as PyImport_AddModuleRef (3.13+) would.
-        try (NewReference<PyObject.Module> main = NewReference.incRef(PyObject.Module.importAdd("__main__"))) {
+        // A strong reference: sys.modules, which owns __main__, can be changed by the
+        // code we are about to run (`del sys.modules["__main__"]` would free it mid-run).
+        try (NewReference<PyObject.Module> main = PyObject.Module.importAddRef("__main__")) {
             // Borrowed from main, which we hold.
             PyObject.Dict globals = main.get().dict();
             try (NewReference<PyObject.Code> code = PyObject.Code.compile(source, "<string>")) {

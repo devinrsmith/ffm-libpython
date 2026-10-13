@@ -1,7 +1,7 @@
 package com.example.ffm.python.internal;
 
-import static com.example.ffm.python.capi.stable.CApi.PyGILState_Ensure;
-import static com.example.ffm.python.capi.stable.CApi.PyGILState_Release;
+import static com.example.ffm.python.capi.stable312.Stable312.PyGILState_Ensure;
+import static com.example.ffm.python.capi.stable312.Stable312.PyGILState_Release;
 
 /**
  * The token {@code PyGILState_Ensure()} returns, to be given back to exactly one

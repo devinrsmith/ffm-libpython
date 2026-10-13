@@ -1,11 +1,12 @@
 package com.example.ffm.python.internal;
 
-import static com.example.ffm.python.capi.stable.CApi.PyDict_Size;
-import static com.example.ffm.python.capi.stable.CApi.PyEval_EvalCode;
-import static com.example.ffm.python.capi.stable.CApi.PyImport_AddModule;
-import static com.example.ffm.python.capi.stable.CApi.PyModule_GetDict;
-import static com.example.ffm.python.capi.stable.CApi.Py_CompileString;
-import static com.example.ffm.python.capi.stable.CApi.Py_file_input;
+import static com.example.ffm.python.capi.stable312.Stable312.PyDict_Size;
+import static com.example.ffm.python.capi.stable312.Stable312.PyEval_EvalCode;
+import static com.example.ffm.python.capi.stable312.Stable312.PyImport_AddModule;
+import static com.example.ffm.python.capi.stable312.Stable312.PyModule_GetDict;
+import static com.example.ffm.python.capi.stable312.Stable312.Py_CompileString;
+import static com.example.ffm.python.capi.stable312.Stable312.Py_file_input;
+import static com.example.ffm.python.capi.stable313.Stable313.PyImport_AddModuleRef;
 
 import com.example.ffm.python.PythonException;
 import java.lang.foreign.Arena;
@@ -21,6 +22,9 @@ import java.lang.foreign.MemorySegment;
  * returns one or the other exactly as CPython documents for the function it wraps.
  * Where CPython signals an error with {@code NULL} and a Python exception, the
  * method prints and clears the exception and throws a {@link PythonException}.
+ *
+ * <p>Methods use only the Stable ABI: the 3.12 level, plus 3.13 additions behind a
+ * runtime check of the loaded library's version ({@link ApiLevel}).
  *
  * <p>All methods must be called while attached to the interpreter that owns the
  * object (holding its GIL). The types are what CPython's documentation promises for
@@ -103,19 +107,34 @@ public sealed interface PyObject permits PyObject.Any, PyObject.Code, PyObject.D
         }
 
         /**
-         * {@code PyImport_AddModule}: the module {@code name} from {@code sys.modules},
-         * created if absent. <b>Borrowed</b> from {@code sys.modules}, which Python
-         * code can change: take a {@link NewReference#incRef} before running any.
+         * The module {@code name} from {@code sys.modules}, created if absent. A
+         * <b>new</b> reference, with the semantics of {@code PyImport_AddModuleRef}.
+         *
+         * <p>That function is new in 3.13, and chosen at runtime: on 3.12 this uses
+         * {@code PyImport_AddModule} and takes a reference itself. Not offered with
+         * the borrowed result of {@code PyImport_AddModule}: it is borrowed from
+         * {@code sys.modules}, which any Python code can change, freeing the module
+         * while the caller still uses it. (CPython added the {@code ...Ref} variants
+         * in 3.13 for exactly such cases.)
          *
          * @throws PythonException if CPython fails to get or create it
          */
-        public static Module importAdd(String name) {
+        public static NewReference<Module> importAddRef(String name) {
             try (Arena arena = Arena.ofConfined()) {
-                MemorySegment module = PyImport_AddModule(arena.allocateFrom(name));
+                MemorySegment cName = arena.allocateFrom(name);
+                if (ApiLevel.atLeast(3, 13)) {
+                    MemorySegment module = PyImport_AddModuleRef(cName);
+                    if (module.equals(MemorySegment.NULL)) {
+                        throw Py.errorPrinted("could not get the " + name + " module");
+                    }
+                    return NewReference.adopt(new Module(module));
+                }
+                // 3.12: borrowed, so take a reference before anything else can run.
+                MemorySegment module = PyImport_AddModule(cName);
                 if (module.equals(MemorySegment.NULL)) {
                     throw Py.errorPrinted("could not get the " + name + " module");
                 }
-                return new Module(module);
+                return NewReference.incRef(new Module(module));
             }
         }
 

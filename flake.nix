@@ -32,7 +32,9 @@
         in
         {
           default = pkgs.mkShell {
-            packages = [ jdk pkgs.jextract python ] ++ gradleWrapper.extraBuildInputs;
+            # python (3.12) first, so it is the shell's python3; python313 only
+            # supplies the 3.13 headers for `./gradlew jextract`.
+            packages = [ jdk pkgs.jextract python pkgs.python313 ] ++ gradleWrapper.extraBuildInputs;
 
             # jextract's bundled libclang has no default C library include path
             # under Nix; it honours CPATH, so `./gradlew jextract` just works.

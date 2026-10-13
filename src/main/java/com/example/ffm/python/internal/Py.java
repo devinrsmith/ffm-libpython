@@ -1,8 +1,8 @@
 package com.example.ffm.python.internal;
 
-import static com.example.ffm.python.capi.stable.CApi.PyErr_Print;
-import static com.example.ffm.python.capi.stable.CApi.Py_DecRef;
-import static com.example.ffm.python.capi.stable.CApi.Py_IncRef;
+import static com.example.ffm.python.capi.stable312.Stable312.PyErr_Print;
+import static com.example.ffm.python.capi.stable312.Stable312.Py_DecRef;
+import static com.example.ffm.python.capi.stable312.Stable312.Py_IncRef;
 
 import com.example.ffm.python.PythonException;
 

@@ -1,19 +1,19 @@
 package com.example.ffm.python;
 
-import static com.example.ffm.python.capi.stable.CApi.Py_FinalizeEx;
-import static com.example.ffm.python.capi.stable.CApi.Py_GetBuildInfo;
-import static com.example.ffm.python.capi.stable.CApi.Py_GetCompiler;
-import static com.example.ffm.python.capi.stable.CApi.Py_GetExecPrefix;
-import static com.example.ffm.python.capi.stable.CApi.Py_GetPath;
-import static com.example.ffm.python.capi.stable.CApi.Py_GetPlatform;
-import static com.example.ffm.python.capi.stable.CApi.Py_GetPrefix;
-import static com.example.ffm.python.capi.stable.CApi.Py_GetProgramFullPath;
-import static com.example.ffm.python.capi.stable.CApi.Py_GetProgramName;
-import static com.example.ffm.python.capi.stable.CApi.Py_GetPythonHome;
-import static com.example.ffm.python.capi.stable.CApi.Py_GetVersion;
-import static com.example.ffm.python.capi.stable.CApi.Py_InitializeEx;
-import static com.example.ffm.python.capi.stable.CApi.Py_IsInitialized;
-import static com.example.ffm.python.capi.stable.CApi.Py_SetProgramName;
+import static com.example.ffm.python.capi.stable312.Stable312.Py_FinalizeEx;
+import static com.example.ffm.python.capi.stable312.Stable312.Py_GetBuildInfo;
+import static com.example.ffm.python.capi.stable312.Stable312.Py_GetCompiler;
+import static com.example.ffm.python.capi.stable312.Stable312.Py_GetExecPrefix;
+import static com.example.ffm.python.capi.stable312.Stable312.Py_GetPath;
+import static com.example.ffm.python.capi.stable312.Stable312.Py_GetPlatform;
+import static com.example.ffm.python.capi.stable312.Stable312.Py_GetPrefix;
+import static com.example.ffm.python.capi.stable312.Stable312.Py_GetProgramFullPath;
+import static com.example.ffm.python.capi.stable312.Stable312.Py_GetProgramName;
+import static com.example.ffm.python.capi.stable312.Stable312.Py_GetPythonHome;
+import static com.example.ffm.python.capi.stable312.Stable312.Py_GetVersion;
+import static com.example.ffm.python.capi.stable312.Stable312.Py_InitializeEx;
+import static com.example.ffm.python.capi.stable312.Stable312.Py_IsInitialized;
+import static com.example.ffm.python.capi.stable312.Stable312.Py_SetProgramName;
 
 import com.example.ffm.python.internal.GilState;
 import com.example.ffm.python.internal.Py312;

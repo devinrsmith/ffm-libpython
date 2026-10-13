@@ -1,8 +1,8 @@
 package com.example.ffm.python.internal;
 
-import static com.example.ffm.python.capi.stable.CApi.PyInterpreterState_Get;
-import static com.example.ffm.python.capi.stable.CApi.PyInterpreterState_GetDict;
-import static com.example.ffm.python.capi.stable.CApi.PyInterpreterState_GetID;
+import static com.example.ffm.python.capi.stable312.Stable312.PyInterpreterState_Get;
+import static com.example.ffm.python.capi.stable312.Stable312.PyInterpreterState_GetDict;
+import static com.example.ffm.python.capi.stable312.Stable312.PyInterpreterState_GetID;
 
 import java.lang.foreign.MemorySegment;
 import java.util.Optional;

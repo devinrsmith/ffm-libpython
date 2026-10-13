@@ -1,12 +1,12 @@
 package com.example.ffm.python.internal;
 
-import static com.example.ffm.python.capi.stable.CApi.PyEval_RestoreThread;
-import static com.example.ffm.python.capi.stable.CApi.PyEval_SaveThread;
-import static com.example.ffm.python.capi.stable.CApi.PyThreadState_Get;
-import static com.example.ffm.python.capi.stable.CApi.PyThreadState_GetID;
-import static com.example.ffm.python.capi.stable.CApi.PyThreadState_GetInterpreter;
-import static com.example.ffm.python.capi.stable.CApi.Py_EndInterpreter;
-import static com.example.ffm.python.capi.stable.CApi.Py_NewInterpreter;
+import static com.example.ffm.python.capi.stable312.Stable312.PyEval_RestoreThread;
+import static com.example.ffm.python.capi.stable312.Stable312.PyEval_SaveThread;
+import static com.example.ffm.python.capi.stable312.Stable312.PyThreadState_Get;
+import static com.example.ffm.python.capi.stable312.Stable312.PyThreadState_GetID;
+import static com.example.ffm.python.capi.stable312.Stable312.PyThreadState_GetInterpreter;
+import static com.example.ffm.python.capi.stable312.Stable312.Py_EndInterpreter;
+import static com.example.ffm.python.capi.stable312.Stable312.Py_NewInterpreter;
 
 import com.example.ffm.python.PythonException;
 import java.lang.foreign.MemorySegment;
