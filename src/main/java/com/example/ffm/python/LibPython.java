@@ -14,6 +14,8 @@ import java.lang.foreign.SymbolLookup;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -28,6 +30,10 @@ import java.util.concurrent.TimeUnit;
  *       {@code python3}, looked up on the {@code PATH}), as reported by its
  *       {@code sysconfig}.
  * </ol>
+ *
+ * <p>In the second case the interpreter's {@code sys.executable} is reported too, so
+ * that the embedded interpreter can present itself as that executable; this is what
+ * makes it pick up a virtual environment.
  */
 final class LibPython {
 
@@ -39,9 +45,11 @@ final class LibPython {
     private static final long MINIMUM_VERSION = 0x030C0000L;
 
     /**
-     * Prints the path of the interpreter's shared libpython. Prefers the versioned
-     * soname (e.g. libpython3.12.so.1.0): distros such as Debian only ship the
-     * unversioned libpython3.12.so symlink in their -dev packages.
+     * Prints the path of the interpreter's shared libpython, then its executable.
+     * Prefers the versioned soname (e.g. libpython3.12.so.1.0): distros such as
+     * Debian only ship the unversioned libpython3.12.so symlink in their -dev
+     * packages. In a virtual environment, sysconfig reports the base installation's
+     * library, while sys.executable is the environment's own python.
      */
     private static final String SYSCONFIG_QUERY = """
             import os, sys, sysconfig
@@ -52,41 +60,51 @@ final class LibPython {
             for name in (var("INSTSONAME"), var("LDLIBRARY")):
                 if name and os.path.isfile(os.path.join(libdir, name)):
                     print(os.path.join(libdir, name))
+                    print(sys.executable)
                     break
             else:
                 sys.exit(f"no shared libpython for {sys.executable} found in {libdir}")
             """;
 
-    private static Path loaded;
+    /**
+     * The libpython to embed.
+     *
+     * @param library the shared library
+     * @param executable the interpreter it belongs to, if known
+     */
+    record Selection(Path library, Optional<Path> executable) {}
+
+    private static Selection loaded;
 
     private LibPython() {}
 
-    /** Loads libpython once per JVM, returning its path. */
-    static synchronized Path load() {
+    /** Loads libpython once per JVM, returning what was loaded. */
+    static synchronized Selection load() {
         if (loaded == null) {
-            Path library = locate();
+            Selection selection = locate();
+            Path library = selection.library();
             // Makes the library visible to the generated bindings' SymbolLookup.loaderLookup().
             System.load(library.toString());
             exportSymbols(library);
             checkVersion(library);
-            loaded = library;
+            loaded = selection;
         }
         return loaded;
     }
 
-    private static Path locate() {
+    private static Selection locate() {
         String explicit = System.getProperty(LIBRARY_PROPERTY);
         if (explicit != null) {
             Path library = Path.of(explicit).toAbsolutePath();
             if (!Files.isRegularFile(library)) {
                 throw new IllegalStateException(LIBRARY_PROPERTY + " does not name a file: " + library);
             }
-            return library;
+            return new Selection(library, Optional.empty());
         }
         return askInterpreter(System.getProperty(EXECUTABLE_PROPERTY, DEFAULT_EXECUTABLE));
     }
 
-    private static Path askInterpreter(String executable) {
+    private static Selection askInterpreter(String executable) {
         // -I (isolated mode): ignore PYTHON* environment variables and user site-packages.
         ProcessBuilder builder = new ProcessBuilder(executable, "-I", "-c", SYSCONFIG_QUERY)
                 .redirectErrorStream(true);
@@ -110,7 +128,13 @@ final class LibPython {
         if (exitCode != 0) {
             throw new IllegalStateException("Could not locate libpython using " + executable + ": " + output);
         }
-        return Path.of(output.lines().reduce((first, second) -> second).orElseThrow());
+        // The last two lines; anything before them would be stray interpreter output.
+        List<String> lines = output.lines().toList();
+        if (lines.size() < 2) {
+            throw new IllegalStateException("Unexpected output from " + executable + ": " + output);
+        }
+        return new Selection(
+                Path.of(lines.get(lines.size() - 2)), Optional.of(Path.of(lines.get(lines.size() - 1))));
     }
 
     /**

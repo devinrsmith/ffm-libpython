@@ -16,7 +16,7 @@ java {
 
 val pythonIncludeDir = providers.exec {
     commandLine(
-        providers.gradleProperty("jextract.python").get(),
+        providers.executableOnPath(providers.gradleProperty("jextract.python")).get(),
         "-c", "import sysconfig; print(sysconfig.get_path('include'))",
     )
 }.standardOutput.asText.map { it.trim() }
@@ -67,6 +67,17 @@ tasks.run {
     systemProperties(pythonRuntimeProperties)
 }
 
+// The tests embed a virtual environment made from the selected interpreter
+// (-Ppython.executable, default python3), to check that it is picked up.
+val testVenv = layout.buildDirectory.dir("test-venv")
+val createTestVenv by tasks.registering(Exec::class) {
+    description = "Creates the virtual environment the tests embed."
+    val python = providers.executableOnPath(providers.gradleProperty("python.executable").orElse("python3"))
+    inputs.property("python", python)
+    outputs.dir(testVenv)
+    commandLine(python.get(), "-m", "venv", "--clear", testVenv.get().asFile.absolutePath)
+}
+
 testing {
     suites {
         named<JvmTestSuite>("test") {
@@ -75,7 +86,10 @@ testing {
                 testTask {
                     // Tests run on the classpath (there is no test module-info).
                     jvmArgs("--enable-native-access=ALL-UNNAMED")
-                    systemProperties(pythonRuntimeProperties)
+                    dependsOn(createTestVenv)
+                    val venv = testVenv.get().asFile.absolutePath
+                    systemProperty("python.executable", "$venv/bin/python")
+                    systemProperty("test.venv", venv)
                     testLogging {
                         events("passed", "skipped", "failed")
                         showStandardStreams = true

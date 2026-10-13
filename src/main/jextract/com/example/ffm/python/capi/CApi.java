@@ -473,6 +473,65 @@ public class CApi extends CApi$shared {
         }
     }
 
+    private static class Py_SetProgramName {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.ofVoid(
+            CApi.C_POINTER
+        );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("Py_SetProgramName");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * void Py_SetProgramName(const wchar_t *)
+     * }
+     */
+    public static FunctionDescriptor Py_SetProgramName$descriptor() {
+        return Py_SetProgramName.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * void Py_SetProgramName(const wchar_t *)
+     * }
+     */
+    public static MethodHandle Py_SetProgramName$handle() {
+        return Py_SetProgramName.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * void Py_SetProgramName(const wchar_t *)
+     * }
+     */
+    public static MemorySegment Py_SetProgramName$address() {
+        return Py_SetProgramName.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * void Py_SetProgramName(const wchar_t *)
+     * }
+     */
+    public static void Py_SetProgramName(MemorySegment x0) {
+        var mh$ = Py_SetProgramName.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("Py_SetProgramName", x0);
+            }
+            mh$.invokeExact(x0);
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
     private static class Py_Version$constants {
         public static final OfLong LAYOUT = CApi.C_LONG;
         public static final MemorySegment SEGMENT = SYMBOL_LOOKUP.findOrThrow("Py_Version").reinterpret(LAYOUT.byteSize());

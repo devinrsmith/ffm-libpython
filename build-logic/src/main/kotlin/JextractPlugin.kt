@@ -23,7 +23,11 @@ class JextractPlugin : Plugin<Project> {
         val jextract = project.tasks.register<JextractTask>("jextract") {
             group = "build setup"
             description = "Regenerates the checked-in FFM bindings with jextract."
-            executable.convention(project.providers.gradleProperty("jextract.executable").orElse("jextract"))
+            executable.convention(
+                project.providers.executableOnPath(
+                    project.providers.gradleProperty("jextract.executable").orElse("jextract")
+                )
+            )
             useSystemLoadLibrary.convention(false)
             defines.convention(emptyList())
             outputDirectory.convention(generatedSources)

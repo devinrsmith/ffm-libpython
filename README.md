@@ -30,7 +30,7 @@ On Debian or Ubuntu, the runtime needs the `libpython3.X` package (the
 versioned `libpython3.X.so.1.0` is enough). Regenerating needs
 `python3.12-dev`.
 
-Only Linux has been tested, with Python 3.12, 3.13 and 3.14.
+Only Linux has been tested, with Python 3.12, 3.13, 3.14 and 3.15.
 
 ### Choosing the Python at runtime
 
@@ -39,25 +39,47 @@ Only Linux has been tested, with Python 3.12, 3.13 and 3.14.
 1. `-Dpython.library=/path/to/libpython3.X.so`, if set.
 2. Otherwise, it asks the interpreter `-Dpython.executable` (default
    `python3` on the `PATH`) through `sysconfig` where its shared library is.
+   It also takes that interpreter's `sys.executable`, and the embedded
+   interpreter presents itself as that executable (see
+   [Virtual environments](#virtual-environments)).
 
 It then checks that the loaded library's `Py_Version` is 3.12 or later, so a
-3.11 library fails with a clear message rather than a crash. `run` and `test`
-forward both properties from Gradle properties of the same name:
+3.11 library fails with a clear message rather than a crash. `run` forwards
+both properties from Gradle properties of the same name:
 
 ```sh
 ./gradlew run -Ppython.executable=/opt/python3.13/bin/python3.13
-./gradlew test -Ppython.library=/usr/lib/x86_64-linux-gnu/libpython3.14.so.1.0
+./gradlew run -Ppython.executable=.venv/bin/python
+./gradlew run -Ppython.library=/usr/lib/x86_64-linux-gnu/libpython3.14.so.1.0
 JAVA_OPTS=-Dpython.executable=python3.14 build/install/ffm-proto/bin/ffm-proto
 ```
+
+`test` always embeds a virtual environment in `build/test-venv`, which it
+creates from `-Ppython.executable` (default `python3`). So
+`./gradlew test -Ppython.executable=python3.15` tests against 3.15.
 
 The resolved libpython must be built with `--enable-shared`. Distro and Nix
 Pythons are; pyenv's default builds and some others aren't, and `LibPython`
 says so when it runs into one.
 
-**Virtual environments.** Pointing `python.executable` at a venv's `python`
-works, but it selects the venv's *base* installation. The embedded
-interpreter's `sys.prefix` is the base install, so the venv's site-packages
-aren't on `sys.path`. Add them yourself, for example with `site.addsitedir`.
+<a id="virtual-environments"></a>**Virtual environments.** Point
+`python.executable` at the venv's `python`. Its `sysconfig` names the base
+installation's libpython, which is loaded. Before initializing,
+`EmbeddedPython` calls `Py_SetProgramName` with the venv's `python`. CPython
+derives `sys.executable` and `sys.prefix` from the program name, finds the
+`pyvenv.cfg` beside it, and so starts *as* the venv, with its site-packages on
+`sys.path`. With only `-Dpython.library`, there's no executable to present, so
+Python falls back to its default path calculation.
+
+`Py_SetProgramName` has been deprecated since 3.11 in favour of `PyConfig` and
+`Py_InitializeFromConfig`. But `PyConfig` isn't in the Stable ABI, and its
+layout changes with every minor version (`sizeof` is 432, 448 and 456 bytes in
+3.12, 3.13 and 3.14). Bindings generated from the 3.12 header would write to
+the wrong offsets on newer Pythons. `Py_SetProgramName` *is* in the Stable ABI
+and still works in 3.15. The test asserts that the embedded `sys.prefix` is its
+venv, so a future Python that stops honouring the call fails the test rather
+than silently ignoring the venv. The forward-compatible replacement, if one is
+ever needed, is PEP 741's string-keyed `PyInitConfig` API (3.14+).
 
 ### With Nix
 
@@ -156,9 +178,11 @@ directories, separated by `:`:
 
 **jextract occasionally crashes.** jextract (from nixpkgs, jextract 23 on
 libclang 21) sometimes dies with a SIGSEGV inside libclang and leaves an
-`hs_err_pid*.log`. It happened in about 2 of 50 generation runs while I
-developed this. `--dump-includes` on the full, unrestricted `Python.h` crashed
-in roughly two thirds of runs. Rerunning works. The task writes into a
+`hs_err_pid*.log`. Normal generation crashed in about 1 in 15 to 2 in 50 runs
+while I developed this. `--dump-includes` on the whole `Python.h` crashed in
+most runs, sometimes several in a row. Rerunning eventually works. I didn't find
+the cause: neither a larger thread stack (`JEXTRACT_JAVA_OPTIONS=-Xss16m`) nor
+`LIBCLANG_DISABLE_CRASH_RECOVERY=1` helped. The task writes into a
 staging directory and syncs into `src/main/jextract` only on success, so a
 crash never damages the committed bindings.
 
@@ -205,3 +229,7 @@ crash never damages the committed bindings.
 - build logic in an included build (`build-logic`). `JextractTask` is lazily
   configured and safe for the configuration cache. Nothing queries Python until
   a task that needs it runs.
+- commands given by name (`jextract`, `python3.12`, the test venv's interpreter)
+  are resolved against the invoking shell's `PATH`, not the Gradle daemon's.
+  The daemon's `PATH` is fixed when it starts, which breaks after switching
+  shells, for example between `nix shell`s.

@@ -9,11 +9,15 @@ import static com.example.ffm.python.capi.CApi.Py_DecRef;
 import static com.example.ffm.python.capi.CApi.Py_FinalizeEx;
 import static com.example.ffm.python.capi.CApi.Py_InitializeEx;
 import static com.example.ffm.python.capi.CApi.Py_IsInitialized;
+import static com.example.ffm.python.capi.CApi.Py_SetProgramName;
 import static com.example.ffm.python.capi.CApi.Py_file_input;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.nio.ByteOrder;
+import java.nio.charset.Charset;
 import java.nio.file.Path;
+import java.util.Optional;
 
 /**
  * An embedded CPython interpreter, valid from {@link #start()} until {@link #close()}.
@@ -30,12 +34,17 @@ import java.nio.file.Path;
  */
 public final class EmbeddedPython implements AutoCloseable {
 
-    private final Path library;
+    /** {@code wchar_t} strings: 4-byte UTF-32 in native byte order on Linux. */
+    private static final Charset WCHAR_CHARSET = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN
+            ? Charset.forName("UTF-32LE")
+            : Charset.forName("UTF-32BE");
+
+    private final LibPython.Selection selection;
     private final Thread owner;
     private boolean closed;
 
-    private EmbeddedPython(Path library) {
-        this.library = library;
+    private EmbeddedPython(LibPython.Selection selection) {
+        this.selection = selection;
         this.owner = Thread.currentThread();
     }
 
@@ -46,14 +55,24 @@ public final class EmbeddedPython implements AutoCloseable {
      *     is already running in this process
      */
     public static EmbeddedPython start() {
-        Path library = LibPython.load();
+        LibPython.Selection selection = LibPython.load();
         if (isInitialized()) {
             throw new IllegalStateException("A Python interpreter is already initialized");
         }
+        // Present the interpreter as the python executable that libpython was found
+        // through. Python derives sys.executable and sys.prefix from it, which is how
+        // a virtual environment (found via the pyvenv.cfg beside it) takes effect.
+        selection.executable().ifPresent(executable -> {
+            // Py_SetProgramName is deprecated since 3.11 in favour of PyConfig, but
+            // PyConfig's layout differs between minor versions and is not in the
+            // Stable ABI. The string must stay valid "for the duration of the
+            // program's execution", hence the global arena.
+            Py_SetProgramName(Arena.global().allocateFrom(executable.toString(), WCHAR_CHARSET));
+        });
         // initsigs = 0: do not let Python install signal handlers (SIGINT etc.),
         // which belong to the JVM.
         Py_InitializeEx(0);
-        return new EmbeddedPython(library);
+        return new EmbeddedPython(selection);
     }
 
     /** Whether a Python interpreter is currently initialized in this process. */
@@ -64,7 +83,16 @@ public final class EmbeddedPython implements AutoCloseable {
 
     /** The libpython shared library this interpreter runs from. */
     public Path library() {
-        return library;
+        return selection.library();
+    }
+
+    /**
+     * The python executable this interpreter presents itself as, which determines
+     * {@code sys.executable} and {@code sys.prefix}; empty when libpython was
+     * given directly with {@code -Dpython.library}.
+     */
+    public Optional<Path> executable() {
+        return selection.executable();
     }
 
     /**

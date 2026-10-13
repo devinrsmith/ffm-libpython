@@ -12,10 +12,12 @@ public final class Main {
 
         try (EmbeddedPython python = EmbeddedPython.start()) {
             System.out.println("Java: embedding " + python.library());
+            python.executable().ifPresent(executable -> System.out.println("Java: as " + executable));
             System.out.flush();
             python.exec("""
                     import sys
                     print(f"Hello from Python {sys.version.split()[0]}, embedded in Java via FFM!")
+                    print(f"sys.prefix = {sys.prefix}")
                     """);
         }
 
