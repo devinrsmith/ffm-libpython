@@ -345,12 +345,14 @@ to that interpreter, from the `PyInterpreterState_Get*()` family:
 |-----------------|------------------------------------------------------------------------------|
 | `id`            | `PyInterpreterState_GetID()`: `0` for the main interpreter, never reused     |
 | `main`          | `PyInterpreterState_Get() == PyInterpreterState_Main()`                      |
-| `stateAddress`  | `PyInterpreterState_Get()`, the `PyInterpreterState *`                       |
+| `stateAddress`  | `PyInterpreterState_Get()`, the `PyInterpreterState *`; only unique among interpreters alive at the same time, because CPython reuses the memory |
 | `threadStateId` | `PyThreadState_GetID()`, numbered *per interpreter* (so usually `1`)         |
-| `dictSize`      | entries in `PyInterpreterState_GetDict()`, where extensions keep per-interpreter data (`PyDict_Size`) |
+| `dictSize`      | entries in `PyInterpreterState_GetDict()`, where extensions keep per-interpreter data (`PyDict_Size`). CPython creates the dict on first request, so reading it allocates it |
 
 IDs are assigned in creation order, which need not match the order your
-threads start in. `PyInterpreterState_Head`/`Next`, which list every live
+threads start in. Use `id`, not `stateAddress`, to tell interpreters apart over
+time: four sub-interpreters created one after another all got the same
+address. `PyInterpreterState_Head`/`Next`, which list every live
 interpreter, are left out: CPython documents them as unsafe while other
 threads create or end interpreters.
 

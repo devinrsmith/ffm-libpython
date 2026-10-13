@@ -61,7 +61,7 @@ final class PythonCode {
     }
 
     /** Prints and clears the pending Python exception, returning a Java one to throw. */
-    private static PythonException pythonError(String message) {
+    static PythonException pythonError(String message) {
         PyErr_Print();
         return new PythonException(message + " (traceback printed to stderr)");
     }
