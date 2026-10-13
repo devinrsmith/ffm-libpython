@@ -280,7 +280,10 @@ public final class EmbeddedPython implements AutoCloseable {
 
     /**
      * Attaches the calling thread to the main interpreter, creates a sub-interpreter
-     * with {@code create} (which returns its thread state), and detaches again.
+     * with {@code create}, and detaches again.
+     *
+     * @param create calls into CPython to create the sub-interpreter, returning its
+     *     thread state, which CPython has made current
      */
     private SubInterpreter newSubInterpreter(InterpreterConfig config, Function<Arena, MemorySegment> create) {
         SubInterpreter.checkPlatformThread();
@@ -294,12 +297,22 @@ public final class EmbeddedPython implements AutoCloseable {
             try (Arena arena = Arena.ofConfined()) {
                 MemorySegment mainState = PyThreadState_Get();
                 // On failure, CPython restores mainState as the current thread state.
-                create.apply(arena);
-                // The new interpreter's thread state is now current, holding its GIL
-                // (its own, in which case the main GIL was released; or the shared
-                // one). Detach it, then return to the main interpreter so that
+                MemorySegment subState = create.apply(arena);
+                // Both C functions document that the new thread state becomes the
+                // current one, holding its GIL (its own, in which case the main GIL
+                // was released; or the shared one). Check that before relying on it:
+                // detaching, and later ending, the wrong thread state would corrupt
+                // CPython. (MemorySegment.equals compares addresses, not sizes.)
+                MemorySegment current = PyThreadState_Get();
+                if (subState.equals(mainState) || !subState.equals(current)) {
+                    throw new IllegalStateException(String.format(
+                            "Sub-interpreter creation returned thread state 0x%x, but 0x%x is current"
+                                    + " (main: 0x%x); CPython's state is now undefined",
+                            subState.address(), current.address(), mainState.address()));
+                }
+                // Detach it, then return to the main interpreter so that
                 // PyGILState_Release can undo PyGILState_Ensure.
-                MemorySegment subState = PyEval_SaveThread();
+                PyEval_SaveThread();
                 PyEval_RestoreThread(mainState);
                 SubInterpreter subInterpreter = new SubInterpreter(this, subState, config);
                 subInterpreters.add(subInterpreter);

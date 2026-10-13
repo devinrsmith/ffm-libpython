@@ -371,7 +371,9 @@ The rules, all enforced:
   which `exec` throws as a `PythonException`.
 Creation briefly attaches the calling thread to the main interpreter with
 `PyGILState_Ensure`, as both C functions require, and detaches again before
-returning. `exec` attaches the sub-interpreter's own thread state. With its
+returning. Both functions make the new thread state current. Before detaching
+it, `EmbeddedPython` checks that the thread state the function returned is the
+current one and isn't the main interpreter's. `exec` attaches the sub-interpreter's own thread state. With its
 own GIL, running code never contends for the main GIL.
 
 ## Design notes
