@@ -27,7 +27,7 @@ public final class Main {
             System.out.println("Java: " + python.interpreterInfo());
             System.out.println("Java: Python configuration:");
             python.configuration().forEach((name, value) ->
-                    System.out.printf("  %-23s = %s%n", name + "()", value == null ? "(not set)" : value));
+                    System.out.printf("  %-19s = %s%n", name, value == null ? "(not set)" : value));
             System.out.flush();
             python.exec("""
                     import sys

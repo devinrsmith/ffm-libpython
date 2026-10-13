@@ -58,3 +58,12 @@
 --include-function PyThreadState_GetID
 --include-function PyThreadState_GetInterpreter
 --include-function PyDict_Size
+
+# Reading str and list objects (e.g. PyConfig_Get's results).
+--include-function PyObject_Type
+--include-function PyType_GetFlags
+--include-constant Py_TPFLAGS_UNICODE_SUBCLASS
+--include-constant Py_TPFLAGS_LIST_SUBCLASS
+--include-function PyUnicode_AsUTF8AndSize
+--include-function PyList_Size
+--include-function PyList_GetItem

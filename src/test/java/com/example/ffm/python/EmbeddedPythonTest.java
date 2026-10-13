@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -33,18 +34,34 @@ class EmbeddedPythonTest {
                     assert os.path.samefile(sys.prefix, %s), sys.prefix
                     assert any(p.startswith(sys.prefix) and p.endswith("site-packages") for p in sys.path), sys.path
                     """.formatted(pythonString(venv))));
-            // The Py_Get*() diagnostics (deprecated, and gone from the 3.15 headers, but
-            // still exported). Py_GetPrefix() is not checked: up to 3.13 it reports the
-            // venv's base installation, from 3.14 on the venv itself.
+            // The configuration: from the Py_Get*() functions up to 3.13, from
+            // PyConfig_Get from 3.14 (the former are deprecated, and gone from the
+            // 3.15 headers).
             Map<String, String> configuration = python.configuration();
+            assertEquals(List.of("program_name", "executable", "home", "prefix", "exec_prefix",
+                            "module_search_paths", "version", "platform", "compiler", "build_info"),
+                    List.copyOf(configuration.keySet()));
             String venvPython = Path.of(venv, "bin", "python").toString();
-            assertEquals(venvPython, configuration.get("Py_GetProgramName"));
-            assertEquals(venvPython, configuration.get("Py_GetProgramFullPath"));
-            // Py_GetVersion() begins with the same version Py_Version encodes.
-            assertTrue(configuration.get("Py_GetVersion").startsWith(python.version() + " "),
-                    configuration.get("Py_GetVersion"));
+            assertEquals(venvPython, configuration.get("program_name"));
+            assertEquals(venvPython, configuration.get("executable"));
+            // The two documented differences between the sources, in this venv:
+            boolean pyConfigGet = python.version().minor() >= 14;
+            assertDoesNotThrow(() -> python.exec("""
+                    import sys
+                    prefix, paths, from_pyconfig_get = %s, %s.split(":"), %s
+                    # prefix: Py_GetPrefix() is the base installation; PyConfig_Get, the venv.
+                    assert prefix == (sys.prefix if from_pyconfig_get else sys.base_prefix), prefix
+                    # module_search_paths: Py_GetPath() is computed before site runs;
+                    # PyConfig_Get is the live sys.path, with the venv's site-packages.
+                    venv_site = any(p.startswith(sys.prefix) and p.endswith("site-packages") for p in paths)
+                    assert venv_site == from_pyconfig_get, paths
+                    """.formatted(pythonString(configuration.get("prefix")),
+                            pythonString(configuration.get("module_search_paths")),
+                            pyConfigGet ? "True" : "False")));
+            // version begins with the same version Py_Version encodes.
+            assertTrue(configuration.get("version").startsWith(python.version() + " "), configuration.get("version"));
             assertTrue(python.version().compareTo(PythonVersion.of(3, 12, 0)) >= 0, python.version()::toString);
-            assertNotNull(configuration.get("Py_GetPlatform"));
+            assertNotNull(configuration.get("platform"));
             assertDoesNotThrow(() -> python.exec("assert 6 * 7 == 42"));
             // exec holds a strong reference to __main__ while the code runs, so
             // removing it from sys.modules does not free it mid-run...

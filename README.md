@@ -121,12 +121,14 @@ flake.nix                         Nix dev shell (JDK 25, jextract, Python 3.12, 
 gradle/libs.versions.toml         version catalog
 jextract/stable312.symbols        C symbols to bind from the Stable ABI (3.12 level)
 jextract/stable313.symbols        ...the Stable ABI's 3.13 additions
+jextract/cpython314.symbols       ...and from CPython 3.14's version-specific API
 jextract/dlfcn.symbols            C symbols to bind from <dlfcn.h> (libc, not Python)
 jextract/cpython312.symbols       ...and from CPython 3.12's version-specific API
 src/main/jextract/                generated bindings (committed, do not edit)
   .../capi/stable312/               Stable312: Stable ABI at the 3.12 level
   .../capi/stable313/               Stable313: what the Stable ABI added in 3.13
   .../capi/py312/                   CPython312: sub-interpreter creation, PyInterpreterState_Main
+  .../capi/py314/                   CPython314: PyConfig_Get
   .../dlfcn/                        Dlfcn: dlopen, dlerror, RTLD_*
 src/main/java/                    module com.example.ffm.python
   com/example/ffm/python/
@@ -139,7 +141,8 @@ src/main/java/                    module com.example.ffm.python
     PyObject.java                 sealed: Module, Dict, Code, Any records, with their functions
     NewReference.java             an owned reference: AutoCloseable, Py_DecRef on close
     PyThreadState.java            ...also PyInterpreterState, GilState: records with their functions
-    Py312.java                    the version-specific functions (capi.py312)
+    Py312.java, Py314.java        the version-specific functions (capi.py312, capi.py314)
+    Configuration.java            the configuration diagnostics, switching source by version
     Py.java                       shared plumbing: incRef / decRef, error reporting
     ApiLevel.java                 the loaded libpython's version, for runtime dispatch
     LibPython.java                finds, loads and checks libpython at runtime
@@ -158,13 +161,13 @@ bindings can be reviewed in diffs. To regenerate them:
 ./gradlew jextract
 ```
 
-`./gradlew jextract` runs four tasks. Each generates only the symbols listed
-in its jextract argument file, into its own package. The three Python ones each
-use the headers of exactly the Python version in their name. The headers come from the interpreters
-in the Gradle properties `jextract.python312` and `jextract.python313`
-(`python3.12` and `python3.13` by default, in `gradle.properties`). Each task
-fails unless it gets that version, so no binding can be silently regenerated
-from other headers. To bind more of the C API, add lines to the right file.
+`./gradlew jextract` runs five tasks. Each generates only the symbols listed
+in its jextract argument file, into its own package. The four Python ones each
+use the headers of exactly the Python version in their name, from the
+interpreters in the Gradle properties `jextract.python312`,
+`jextract.python313` and `jextract.python314` (`python3.12` and so on by
+default, in `gradle.properties`). Each fails unless it gets that version, so no
+binding can be silently regenerated from other headers. To bind more of the C API, add lines to the right file.
 jextract silently skips symbols it can't find, so check the generated code
 afterwards.
 
@@ -173,6 +176,7 @@ afterwards.
 | `jextractStable312` | `stable312.symbols` | `capi.stable312.Stable312` | 3.12, `Py_LIMITED_API=0x030C0000` |
 | `jextractStable313` | `stable313.symbols` | `capi.stable313.Stable313` | 3.13, `Py_LIMITED_API=0x030D0000` |
 | `jextractCPython312` | `cpython312.symbols` | `capi.py312.CPython312` | 3.12, full API |
+| `jextractCPython314` | `cpython314.symbols` | `capi.py314.CPython314` | 3.14, full API |
 | `jextractDlfcn` | `dlfcn.symbols` | `dlfcn.Dlfcn` | the C library's `<dlfcn.h>` |
 
 **`jextractStable312`** covers almost everything. It extracts `<Python.h>` with
@@ -205,6 +209,11 @@ which is what shows at call sites, since they use static imports).
   supported version are bound. `PyInterpreterConfig` and `PyStatus` are
   identical from 3.12 through 3.15. A future Python that changes them would
   need a `py3XX` package of its own, chosen at runtime by `Py_Version`.
+
+**`jextractCPython314`** binds PEP 741's `PyConfig_Get` from the full 3.14
+headers, by the same rules as `jextractCPython312`. Its declaration is
+identical in 3.14 and 3.15. It doesn't exist before 3.14, so it's only called
+behind a version check.
 
 **`jextractStable313`** binds what the Stable ABI added in 3.13, currently
 just `PyImport_AddModuleRef`. See [Switching on the version at
@@ -243,9 +252,8 @@ crash never damages the committed bindings.
 ## Startup diagnostics
 
 After initializing, before running any Python code, `Main` prints how the
-interpreter was configured. `EmbeddedPython.configuration()` collects these
-values from CPython's `Py_Get*()` functions. Here is a run in a 3.15 virtual
-environment:
+interpreter was configured, as collected by `EmbeddedPython.configuration()`.
+Here is a run in a 3.15 virtual environment:
 
 ```console
 $ ./gradlew run -q -Ppython.executable=/home/me/.venv/bin/python
@@ -255,16 +263,16 @@ Java: as /home/me/.venv/bin/python
 Java: Py_Version = 0x030F00F0 = 3.15.0 (final)
 Java: interpreter 0 (main) at 0x7fffc5337c08, thread state 1, interpreter dict 0 entries
 Java: Python configuration:
-  Py_GetProgramName()     = /home/me/.venv/bin/python
-  Py_GetProgramFullPath() = /home/me/.venv/bin/python
-  Py_GetPythonHome()      = (not set)
-  Py_GetPrefix()          = /home/me/.venv
-  Py_GetExecPrefix()      = /home/me/.venv
-  Py_GetPath()            = /nix/store/…-python3-3.15.0/lib/python315.zip:/nix/store/…-python3-3.15.0/lib/python3.15:/nix/store/…-python3-3.15.0/lib/python3.15/lib-dynload
-  Py_GetVersion()         = 3.15.0 (main, Oct  9 2026, 11:16:41) [GCC 16.2.0]
-  Py_GetPlatform()        = linux
-  Py_GetCompiler()        = [GCC 16.2.0]
-  Py_GetBuildInfo()       = main, Oct  9 2026, 11:16:41
+  program_name        = /home/me/.venv/bin/python
+  executable          = /home/me/.venv/bin/python
+  home                = (not set)
+  prefix              = /home/me/.venv
+  exec_prefix         = /home/me/.venv
+  module_search_paths = /nix/store/…-python3-3.15.0/lib/python315.zip:/nix/store/…-python3-3.15.0/lib/python3.15:/nix/store/…-python3-3.15.0/lib/python3.15/lib-dynload:/home/me/.venv/lib/python3.15/site-packages
+  version             = 3.15.0 (main, Oct  9 2026, 11:16:41) [GCC 16.2.0]
+  platform            = linux
+  compiler            = [GCC 16.2.0]
+  build_info          = main, Oct  9 2026, 11:16:41
 Hello from Python 3.15.0, embedded in Java via FFM!
 sys.prefix = /home/me/.venv
 Java: running 3 sub-interpreters on 3 threads
@@ -286,24 +294,45 @@ actually loaded. `PythonVersion` also packs back to `hex()`, orders like the
 packed value (`3.14.0a1 < 3.14.0 < 3.14.1`), and prints as Python does
 (`3.12.5rc2`). `LibPython` uses it for the 3.12 minimum check.
 
-The `Py_Get*()` values come in two groups:
+The configuration comes in two groups, keyed by name:
 
-- **Path configuration** (`wchar_t *`): `Py_GetProgramName`,
-  `Py_GetProgramFullPath`, `Py_GetPythonHome`, `Py_GetPrefix`,
-  `Py_GetExecPrefix` and `Py_GetPath`. These have been deprecated since 3.13
-  in favour of `sys` and `PyConfig_Get()`. They're no longer declared in the
-  3.15 headers, but they're part of the Stable ABI, so 3.15 still exports them
-  and the bindings generated from 3.12 still work. `Py_GetPath()` is the module
-  search path *before* `site` runs, so it doesn't include site-packages.
-- **Build** (`const char *`): `Py_GetVersion`, `Py_GetPlatform`,
-  `Py_GetCompiler` and `Py_GetBuildInfo`. `Py_GetCopyright` returns a
-  multi-line legal notice rather than configuration, so it isn't bound.
+- **Path configuration:** `program_name`, `executable`, `home`, `prefix`,
+  `exec_prefix` and `module_search_paths`. The names are `PyConfig_Get`'s, and
+  the source depends on the loaded version (see [Switching on the version at
+  runtime](#switching-on-the-version-at-runtime)):
+  - **Up to 3.13:** the `Py_Get*()` functions (`Py_GetProgramName`,
+    `Py_GetProgramFullPath`, `Py_GetPythonHome`, `Py_GetPrefix`,
+    `Py_GetExecPrefix`, `Py_GetPath`). They were deprecated in 3.13 and removed
+    from the 3.15 headers. As Stable ABI, 3.15 still exports them, but nothing
+    promises they keep working, so they aren't used from 3.14 on.
+  - **From 3.14:** their replacement, PEP 741's `PyConfig_Get`.
+- **Build information:** `version`, `platform`, `compiler` and `build_info`,
+  from `Py_GetVersion`, `Py_GetPlatform`, `Py_GetCompiler` and
+  `Py_GetBuildInfo` on every version. These aren't deprecated.
+  `Py_GetCopyright` returns a multi-line legal notice rather than
+  configuration, so it isn't bound.
 
-**In a venv, `Py_GetPrefix()` and `Py_GetExecPrefix()` change meaning between
-versions.** Up to 3.13 they report the venv's *base* installation, even though
-`sys.prefix` is the venv. From 3.14 they report the venv. `Py_GetProgramName()`
-and `Py_GetProgramFullPath()` name the venv's `python` on every version, so use
-those (or `sys.prefix`) to tell whether a venv is in effect.
+**Each version's values are reported as is, and two keys differ in meaning
+between the sources.** The same 3.12 venv as above reports:
+
+```console
+  prefix              = /nix/store/…-python3-3.12.15
+  exec_prefix         = /nix/store/…-python3-3.12.15
+  module_search_paths = /nix/store/…-python3-3.12.15/lib/python312.zip:/nix/store/…-python3-3.12.15/lib/python3.12:/nix/store/…-python3-3.12.15/lib/python3.12/lib-dynload
+```
+
+- **`module_search_paths`:** up to 3.13 this is `Py_GetPath()`, the search
+  path computed at startup *before* `site` runs. From 3.14, `PyConfig_Get`
+  returns the live `sys.path`, which includes what `site` added (here, the
+  venv's site-packages). No replacement gives the old value exactly.
+- **`prefix` and `exec_prefix` in a venv:** up to 3.13, `Py_GetPrefix()` and
+  `Py_GetExecPrefix()` report the venv's *base* installation, even though
+  `sys.prefix` is the venv. From 3.14 they're the venv.
+- `program_name` and `executable` name the venv's `python` on every version,
+  so use those (or `sys.prefix`) to tell whether a venv is in effect.
+
+The test asserts both differences per version. Forcing the old functions on
+3.14 makes it fail.
 
 ## Sub-interpreters
 
@@ -415,11 +444,18 @@ Callers get the same `NewReference` either way. Probing each version showed
 3.12 taking the fallback, 3.13–3.15 the new function, and every version
 completing.
 
+The second case is the [configuration diagnostics](#startup-diagnostics). Up
+to 3.13 they come from the deprecated `Py_Get*()` path functions. From 3.14
+they come from `PyConfig_Get` (`capi.py314`), whose `str` / `None` / `list`
+results are read through typed `PyObject.Str` and `PyObject.List` records. The
+two sources disagree on what two keys mean, which is documented there and
+asserted per version.
+
 **This relies on lazy symbol lookup.** A 3.12 libpython doesn't export
 `PyImport_AddModuleRef`, but jextract's generated code looks each function up
 only on its first call, so the binding is harmless until called. So every call
-into `capi.stable313` (or any future newer-level binding) must sit behind an
-`ApiLevel` check.
+into `capi.stable313` or `capi.py314` (or any future newer-level binding) must
+sit behind an `ApiLevel` check.
 
 **Borrowed or new.** A wrapper returns a borrowed reference (a bare record)
 only when it's borrowed from something the caller already holds and Python

@@ -33,6 +33,66 @@ public class Stable312 extends Stable312$shared {
         return Py_file_input;
     }
 
+    private static class PyType_GetFlags {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            Stable312.C_LONG,
+            Stable312.C_POINTER
+        );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("PyType_GetFlags");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * unsigned long PyType_GetFlags(PyTypeObject *)
+     * }
+     */
+    public static FunctionDescriptor PyType_GetFlags$descriptor() {
+        return PyType_GetFlags.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * unsigned long PyType_GetFlags(PyTypeObject *)
+     * }
+     */
+    public static MethodHandle PyType_GetFlags$handle() {
+        return PyType_GetFlags.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * unsigned long PyType_GetFlags(PyTypeObject *)
+     * }
+     */
+    public static MemorySegment PyType_GetFlags$address() {
+        return PyType_GetFlags.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * unsigned long PyType_GetFlags(PyTypeObject *)
+     * }
+     */
+    public static long PyType_GetFlags(MemorySegment x0) {
+        var mh$ = PyType_GetFlags.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("PyType_GetFlags", x0);
+            }
+            return (long)mh$.invokeExact(x0);
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
     private static class Py_IncRef {
         public static final FunctionDescriptor DESC = FunctionDescriptor.ofVoid(
             Stable312.C_POINTER
@@ -144,6 +204,67 @@ public class Stable312 extends Stable312$shared {
                 traceDowncall("Py_DecRef", x0);
             }
             mh$.invokeExact(x0);
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class PyUnicode_AsUTF8AndSize {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            Stable312.C_POINTER,
+            Stable312.C_POINTER,
+            Stable312.C_POINTER
+        );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("PyUnicode_AsUTF8AndSize");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * const char *PyUnicode_AsUTF8AndSize(PyObject *unicode, Py_ssize_t *size)
+     * }
+     */
+    public static FunctionDescriptor PyUnicode_AsUTF8AndSize$descriptor() {
+        return PyUnicode_AsUTF8AndSize.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * const char *PyUnicode_AsUTF8AndSize(PyObject *unicode, Py_ssize_t *size)
+     * }
+     */
+    public static MethodHandle PyUnicode_AsUTF8AndSize$handle() {
+        return PyUnicode_AsUTF8AndSize.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * const char *PyUnicode_AsUTF8AndSize(PyObject *unicode, Py_ssize_t *size)
+     * }
+     */
+    public static MemorySegment PyUnicode_AsUTF8AndSize$address() {
+        return PyUnicode_AsUTF8AndSize.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * const char *PyUnicode_AsUTF8AndSize(PyObject *unicode, Py_ssize_t *size)
+     * }
+     */
+    public static MemorySegment PyUnicode_AsUTF8AndSize(MemorySegment unicode, MemorySegment size) {
+        var mh$ = PyUnicode_AsUTF8AndSize.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("PyUnicode_AsUTF8AndSize", unicode, size);
+            }
+            return (MemorySegment)mh$.invokeExact(unicode, size);
         } catch (Error | RuntimeException ex) {
            throw ex;
         } catch (Throwable ex$) {
@@ -677,6 +798,127 @@ public class Stable312 extends Stable312$shared {
                 traceDowncall("PyGILState_Release", x0);
             }
             mh$.invokeExact(x0);
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class PyList_Size {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            Stable312.C_LONG,
+            Stable312.C_POINTER
+        );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("PyList_Size");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * Py_ssize_t PyList_Size(PyObject *)
+     * }
+     */
+    public static FunctionDescriptor PyList_Size$descriptor() {
+        return PyList_Size.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * Py_ssize_t PyList_Size(PyObject *)
+     * }
+     */
+    public static MethodHandle PyList_Size$handle() {
+        return PyList_Size.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * Py_ssize_t PyList_Size(PyObject *)
+     * }
+     */
+    public static MemorySegment PyList_Size$address() {
+        return PyList_Size.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * Py_ssize_t PyList_Size(PyObject *)
+     * }
+     */
+    public static long PyList_Size(MemorySegment x0) {
+        var mh$ = PyList_Size.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("PyList_Size", x0);
+            }
+            return (long)mh$.invokeExact(x0);
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class PyList_GetItem {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            Stable312.C_POINTER,
+            Stable312.C_POINTER,
+            Stable312.C_LONG
+        );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("PyList_GetItem");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * PyObject *PyList_GetItem(PyObject *, Py_ssize_t)
+     * }
+     */
+    public static FunctionDescriptor PyList_GetItem$descriptor() {
+        return PyList_GetItem.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * PyObject *PyList_GetItem(PyObject *, Py_ssize_t)
+     * }
+     */
+    public static MethodHandle PyList_GetItem$handle() {
+        return PyList_GetItem.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * PyObject *PyList_GetItem(PyObject *, Py_ssize_t)
+     * }
+     */
+    public static MemorySegment PyList_GetItem$address() {
+        return PyList_GetItem.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * PyObject *PyList_GetItem(PyObject *, Py_ssize_t)
+     * }
+     */
+    public static MemorySegment PyList_GetItem(MemorySegment x0, long x1) {
+        var mh$ = PyList_GetItem.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("PyList_GetItem", x0, x1);
+            }
+            return (MemorySegment)mh$.invokeExact(x0, x1);
         } catch (Error | RuntimeException ex) {
            throw ex;
         } catch (Throwable ex$) {
@@ -2136,6 +2378,84 @@ public class Stable312 extends Stable312$shared {
         } catch (Throwable ex$) {
            throw new AssertionError("should not reach here", ex$);
         }
+    }
+
+    private static class PyObject_Type {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            Stable312.C_POINTER,
+            Stable312.C_POINTER
+        );
+
+        public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("PyObject_Type");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * PyObject *PyObject_Type(PyObject *o)
+     * }
+     */
+    public static FunctionDescriptor PyObject_Type$descriptor() {
+        return PyObject_Type.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * PyObject *PyObject_Type(PyObject *o)
+     * }
+     */
+    public static MethodHandle PyObject_Type$handle() {
+        return PyObject_Type.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * PyObject *PyObject_Type(PyObject *o)
+     * }
+     */
+    public static MemorySegment PyObject_Type$address() {
+        return PyObject_Type.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * PyObject *PyObject_Type(PyObject *o)
+     * }
+     */
+    public static MemorySegment PyObject_Type(MemorySegment o) {
+        var mh$ = PyObject_Type.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("PyObject_Type", o);
+            }
+            return (MemorySegment)mh$.invokeExact(o);
+        } catch (Error | RuntimeException ex) {
+           throw ex;
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+    private static final long Py_TPFLAGS_LIST_SUBCLASS = 33554432L;
+    /**
+     * {@snippet lang=c :
+     * #define Py_TPFLAGS_LIST_SUBCLASS 33554432
+     * }
+     */
+    public static long Py_TPFLAGS_LIST_SUBCLASS() {
+        return Py_TPFLAGS_LIST_SUBCLASS;
+    }
+    private static final long Py_TPFLAGS_UNICODE_SUBCLASS = 268435456L;
+    /**
+     * {@snippet lang=c :
+     * #define Py_TPFLAGS_UNICODE_SUBCLASS 268435456
+     * }
+     */
+    public static long Py_TPFLAGS_UNICODE_SUBCLASS() {
+        return Py_TPFLAGS_UNICODE_SUBCLASS;
     }
 }
 

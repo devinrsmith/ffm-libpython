@@ -74,6 +74,18 @@ tasks.register<JextractTask>("jextractStable313") {
     includeDirs.add(pythonIncludeDir("3.13"))
 }
 
+// CPython's version-specific API from the 3.14 headers: PEP 741's PyConfig_Get,
+// the replacement for the deprecated Py_Get*() path functions. Only callable
+// when Py_Version >= 3.14 (see README).
+tasks.register<JextractTask>("jextractCPython314") {
+    description = "Generates the CPython 3.14 version-specific bindings (capi.py314)."
+    headers = listOf("<Python.h>")
+    symbolsFile = layout.projectDirectory.file("jextract/cpython314.symbols")
+    targetPackage = "com.example.ffm.python.capi.py314"
+    headerClassName = "CPython314"
+    includeDirs.add(pythonIncludeDir("3.14"))
+}
+
 // The C library's dynamic linker interface: dlopen, used to make libpython's
 // symbols global. Not Python, so no Python headers (and no version) involved.
 tasks.register<JextractTask>("jextractDlfcn") {

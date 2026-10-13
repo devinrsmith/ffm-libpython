@@ -1,0 +1,14 @@
+# jextract argument file: CPython's version-specific (non-Stable-ABI) API, as
+# declared by the Python 3.14 headers. Generates com.example.ffm.python.capi.py314
+# (task jextractCPython314), which the build refuses to generate from any other
+# version's headers.
+#
+# None of these exist before 3.14: only call them after checking the loaded
+# libpython's Py_Version (internal.ApiLevel). As with cpython312.symbols, only add
+# symbols whose declarations are unchanged in every later supported version;
+# PyConfig_Get is identical in 3.14 and 3.15.
+
+# PEP 741: read the interpreter's configuration by name; a new reference.
+# Replaces the Py_Get*() path functions, deprecated in 3.13 and removed from the
+# 3.15 headers.
+--include-function PyConfig_Get

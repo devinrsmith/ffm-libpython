@@ -1,30 +1,17 @@
 package com.example.ffm.python;
 
 import static com.example.ffm.python.capi.stable312.Stable312.Py_FinalizeEx;
-import static com.example.ffm.python.capi.stable312.Stable312.Py_GetBuildInfo;
-import static com.example.ffm.python.capi.stable312.Stable312.Py_GetCompiler;
-import static com.example.ffm.python.capi.stable312.Stable312.Py_GetExecPrefix;
-import static com.example.ffm.python.capi.stable312.Stable312.Py_GetPath;
-import static com.example.ffm.python.capi.stable312.Stable312.Py_GetPlatform;
-import static com.example.ffm.python.capi.stable312.Stable312.Py_GetPrefix;
-import static com.example.ffm.python.capi.stable312.Stable312.Py_GetProgramFullPath;
-import static com.example.ffm.python.capi.stable312.Stable312.Py_GetProgramName;
-import static com.example.ffm.python.capi.stable312.Stable312.Py_GetPythonHome;
-import static com.example.ffm.python.capi.stable312.Stable312.Py_GetVersion;
 import static com.example.ffm.python.capi.stable312.Stable312.Py_InitializeEx;
 import static com.example.ffm.python.capi.stable312.Stable312.Py_IsInitialized;
 import static com.example.ffm.python.capi.stable312.Stable312.Py_SetProgramName;
 
+import com.example.ffm.python.internal.Configuration;
 import com.example.ffm.python.internal.GilState;
 import com.example.ffm.python.internal.Py312;
 import com.example.ffm.python.internal.PyThreadState;
+import com.example.ffm.python.internal.WideChars;
 import java.lang.foreign.Arena;
-import java.lang.foreign.MemorySegment;
-import java.nio.ByteOrder;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.SequencedMap;
@@ -49,11 +36,6 @@ import java.util.function.Supplier;
  * <p>Which libpython is embedded is decided at runtime; see {@link LibPython}.
  */
 public final class EmbeddedPython implements AutoCloseable {
-
-    /** {@code wchar_t} strings: 4-byte UTF-32 in native byte order on Linux. */
-    private static final Charset WCHAR_CHARSET = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN
-            ? Charset.forName("UTF-32LE")
-            : Charset.forName("UTF-32BE");
 
     private final LibPython.Selection selection;
     private final Thread owner;
@@ -89,7 +71,7 @@ public final class EmbeddedPython implements AutoCloseable {
             // PyConfig's layout differs between minor versions and is not in the
             // Stable ABI. The string must stay valid "for the duration of the
             // program's execution", hence the global arena.
-            Py_SetProgramName(Arena.global().allocateFrom(executable.toString(), WCHAR_CHARSET));
+            Py_SetProgramName(Arena.global().allocateFrom(executable.toString(), WideChars.CHARSET));
         });
         // initsigs = 0: do not let Python install signal handlers (SIGINT etc.),
         // which belong to the JVM.
@@ -129,39 +111,24 @@ public final class EmbeddedPython implements AutoCloseable {
     }
 
     /**
-     * Reports how the interpreter was configured, as returned by CPython's
-     * {@code Py_Get*()} functions, keyed by function name in a stable order. The
-     * values are {@code null} where CPython returns {@code NULL} (e.g. an unset
-     * {@code Py_GetPythonHome()}).
+     * Reports how the interpreter was configured, keyed by name in a fixed order:
+     * the path configuration ({@code program_name}, {@code executable}, {@code home},
+     * {@code prefix}, {@code exec_prefix}, {@code module_search_paths}) and build
+     * information ({@code version}, {@code platform}, {@code compiler},
+     * {@code build_info}). Values are {@code null} where unset (e.g. {@code home}).
      *
-     * <p>The path functions ({@code Py_GetPrefix()} etc.) are deprecated since 3.13
-     * and no longer declared in the 3.15 headers, in favour of {@code sys} and
-     * {@code PyConfig_Get()}. Being part of the Stable ABI, they are still exported.
+     * <p>The path configuration comes from the {@code Py_Get*()} functions up to
+     * 3.13, and from their replacement {@code PyConfig_Get} from 3.14 on. Each
+     * version's values are reported as is, and two differ in meaning:
+     * {@code module_search_paths} is the search path computed at startup up to 3.13
+     * ({@code Py_GetPath()}), but the live {@code sys.path}, including what
+     * {@code site} added, from 3.14; and in a virtual environment, {@code prefix} and
+     * {@code exec_prefix} are the base installation's up to 3.13 but the
+     * environment's from 3.14.
      */
     public SequencedMap<String, String> configuration() {
         checkUsable();
-        SequencedMap<String, String> configuration = new LinkedHashMap<>();
-        threadState.runAttached(() -> {
-            // Path configuration: wchar_t strings owned by CPython.
-            put(configuration, "Py_GetProgramName", Py_GetProgramName(), WCHAR_CHARSET);
-            put(configuration, "Py_GetProgramFullPath", Py_GetProgramFullPath(), WCHAR_CHARSET);
-            put(configuration, "Py_GetPythonHome", Py_GetPythonHome(), WCHAR_CHARSET);
-            put(configuration, "Py_GetPrefix", Py_GetPrefix(), WCHAR_CHARSET);
-            put(configuration, "Py_GetExecPrefix", Py_GetExecPrefix(), WCHAR_CHARSET);
-            put(configuration, "Py_GetPath", Py_GetPath(), WCHAR_CHARSET);
-            // Build information: static UTF-8 strings.
-            put(configuration, "Py_GetVersion", Py_GetVersion(), StandardCharsets.UTF_8);
-            put(configuration, "Py_GetPlatform", Py_GetPlatform(), StandardCharsets.UTF_8);
-            put(configuration, "Py_GetCompiler", Py_GetCompiler(), StandardCharsets.UTF_8);
-            put(configuration, "Py_GetBuildInfo", Py_GetBuildInfo(), StandardCharsets.UTF_8);
-        });
-        return configuration;
-    }
-
-    private static void put(SequencedMap<String, String> map, String name, MemorySegment string, Charset charset) {
-        // The generated bindings give char/wchar_t pointers an unbounded target
-        // layout, so the NUL-terminated string can be read directly.
-        map.put(name, string.equals(MemorySegment.NULL) ? null : string.getString(0, charset));
+        return threadState.callAttached(Configuration::read);
     }
 
     /** Diagnostics about the main interpreter, from {@code PyInterpreterState_Get*()}. */
