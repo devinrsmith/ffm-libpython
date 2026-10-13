@@ -1,5 +1,6 @@
 package com.example.ffm.python;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -28,11 +29,23 @@ public final class Main {
             System.out.println("Java: Python configuration:");
             python.configuration().forEach((name, value) ->
                     System.out.printf("  %-19s = %s%n", name, value == null ? "(not set)" : value));
+
+            python.findExtensionModule("jpy").map(Path::toString).ifPresent(path -> {
+                System.out.printf("Java: Loading found jpy extension: %s%n", path);
+                System.load(path);
+            });
             System.out.flush();
+
             python.exec("""
                     import sys
+                    try:
+                        import jpy
+                        jpy_imported = True
+                    except ImportError:
+                        jpy_imported = False
                     print(f"Hello from Python {sys.version.split()[0]}, embedded in Java via FFM!")
                     print(f"sys.prefix = {sys.prefix}")
+                    print(f"jpy_imported = {jpy_imported}")
                     sys.stdout.flush()  # buffered until finalization otherwise, when not a terminal
                     """);
             runSubInterpreters(python, 3);
@@ -61,7 +74,12 @@ public final class Main {
                         System.out.flush();
                         sub.exec("""
                                 import sys, threading
-                                print(f"[sub-interpreter %d] own sys module at {id(sys):#x}, native thread {threading.get_native_id()}", flush=True)
+                                try:
+                                    import jpy
+                                    jpy_imported = True
+                                except ImportError:
+                                    jpy_imported = False
+                                print(f"[sub-interpreter %d] own sys module at {id(sys):#x}, native thread {threading.get_native_id()}, jpy_imported={jpy_imported}", flush=True)
                                 """.formatted(n));
                     }
                 }));
