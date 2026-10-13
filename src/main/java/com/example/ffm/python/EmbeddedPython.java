@@ -1,14 +1,5 @@
 package com.example.ffm.python;
 
-import static com.example.ffm.python.capi.py312.CPython312.PyInterpreterConfig_OWN_GIL;
-import static com.example.ffm.python.capi.py312.CPython312.PyInterpreterConfig_SHARED_GIL;
-import static com.example.ffm.python.capi.py312.CPython312.PyStatus_Exception;
-import static com.example.ffm.python.capi.py312.CPython312.Py_NewInterpreterFromConfig;
-import static com.example.ffm.python.capi.stable.CApi.PyEval_RestoreThread;
-import static com.example.ffm.python.capi.stable.CApi.PyEval_SaveThread;
-import static com.example.ffm.python.capi.stable.CApi.PyGILState_Ensure;
-import static com.example.ffm.python.capi.stable.CApi.PyGILState_Release;
-import static com.example.ffm.python.capi.stable.CApi.PyThreadState_Get;
 import static com.example.ffm.python.capi.stable.CApi.Py_FinalizeEx;
 import static com.example.ffm.python.capi.stable.CApi.Py_GetBuildInfo;
 import static com.example.ffm.python.capi.stable.CApi.Py_GetCompiler;
@@ -22,12 +13,12 @@ import static com.example.ffm.python.capi.stable.CApi.Py_GetPythonHome;
 import static com.example.ffm.python.capi.stable.CApi.Py_GetVersion;
 import static com.example.ffm.python.capi.stable.CApi.Py_InitializeEx;
 import static com.example.ffm.python.capi.stable.CApi.Py_IsInitialized;
-import static com.example.ffm.python.capi.stable.CApi.Py_NewInterpreter;
 import static com.example.ffm.python.capi.stable.CApi.Py_SetProgramName;
-import static java.lang.foreign.ValueLayout.ADDRESS;
 
-import com.example.ffm.python.capi.py312.PyInterpreterConfig;
-import com.example.ffm.python.capi.py312.PyStatus;
+import com.example.ffm.python.internal.GilState;
+import com.example.ffm.python.internal.Py;
+import com.example.ffm.python.internal.Py312;
+import com.example.ffm.python.internal.PyThreadState;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteOrder;
@@ -40,7 +31,7 @@ import java.util.Optional;
 import java.util.SequencedMap;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * An embedded CPython interpreter, valid from {@link #start()} until {@link #close()}.
@@ -68,13 +59,13 @@ public final class EmbeddedPython implements AutoCloseable {
     private final LibPython.Selection selection;
     private final Thread owner;
     /** The owner thread's thread state, detached (GIL released) between calls. */
-    private final MemorySegment threadState;
+    private final PyThreadState threadState;
     /** Guards closed and creating sub-interpreters against finalization. */
     private final Object lifecycle = new Object();
     private final Set<SubInterpreter> subInterpreters = ConcurrentHashMap.newKeySet();
     private volatile boolean closed;
 
-    private EmbeddedPython(LibPython.Selection selection, MemorySegment threadState) {
+    private EmbeddedPython(LibPython.Selection selection, PyThreadState threadState) {
         this.selection = selection;
         this.owner = Thread.currentThread();
         this.threadState = threadState;
@@ -106,7 +97,7 @@ public final class EmbeddedPython implements AutoCloseable {
         Py_InitializeEx(0);
         // Release the GIL, so that other threads can attach (e.g. to create
         // sub-interpreters) while this one is not running Python code.
-        return new EmbeddedPython(selection, PyEval_SaveThread());
+        return new EmbeddedPython(selection, Py.evalSaveThread());
     }
 
     /** Whether a Python interpreter is currently initialized in this process. */
@@ -151,7 +142,7 @@ public final class EmbeddedPython implements AutoCloseable {
     public SequencedMap<String, String> configuration() {
         checkUsable();
         SequencedMap<String, String> configuration = new LinkedHashMap<>();
-        PyEval_RestoreThread(threadState);
+        Py.evalRestoreThread(threadState);
         try {
             // Path configuration: wchar_t strings owned by CPython.
             put(configuration, "Py_GetProgramName", Py_GetProgramName(), WCHAR_CHARSET);
@@ -166,7 +157,7 @@ public final class EmbeddedPython implements AutoCloseable {
             put(configuration, "Py_GetCompiler", Py_GetCompiler(), StandardCharsets.UTF_8);
             put(configuration, "Py_GetBuildInfo", Py_GetBuildInfo(), StandardCharsets.UTF_8);
         } finally {
-            PyEval_SaveThread();
+            Py.evalSaveThread();
         }
         return configuration;
     }
@@ -180,11 +171,11 @@ public final class EmbeddedPython implements AutoCloseable {
     /** Diagnostics about the main interpreter, from {@code PyInterpreterState_Get*()}. */
     public InterpreterInfo interpreterInfo() {
         checkUsable();
-        PyEval_RestoreThread(threadState);
+        Py.evalRestoreThread(threadState);
         try {
             return InterpreterInfo.current();
         } finally {
-            PyEval_SaveThread();
+            Py.evalSaveThread();
         }
     }
 
@@ -200,11 +191,11 @@ public final class EmbeddedPython implements AutoCloseable {
      */
     public void exec(String source) {
         checkUsable();
-        PyEval_RestoreThread(threadState);
+        Py.evalRestoreThread(threadState);
         try {
             PythonCode.run(source);
         } finally {
-            PyEval_SaveThread();
+            Py.evalSaveThread();
         }
     }
 
@@ -226,13 +217,7 @@ public final class EmbeddedPython implements AutoCloseable {
      * @throws PythonException if CPython fails to create it
      */
     public SubInterpreter newSubInterpreter() {
-        return newSubInterpreter(InterpreterConfig.legacy(), arena -> {
-            MemorySegment state = Py_NewInterpreter();
-            if (state.equals(MemorySegment.NULL)) {
-                throw new PythonException("Py_NewInterpreter failed");
-            }
-            return state;
-        });
+        return newSubInterpreter(InterpreterConfig.legacy(), Py::newInterpreter);
     }
 
     /**
@@ -252,30 +237,9 @@ public final class EmbeddedPython implements AutoCloseable {
      */
     public SubInterpreter newSubInterpreterFromConfig(InterpreterConfig config) {
         Objects.requireNonNull(config, "config");
-        return newSubInterpreter(config, arena -> {
-            // Already validated by InterpreterConfig: CPython 3.12 must never get to
-            // reject a configuration (its error path loses the GIL).
-            MemorySegment nativeConfig = PyInterpreterConfig.allocate(arena);
-            PyInterpreterConfig.use_main_obmalloc(nativeConfig, config.useMainObmalloc() ? 1 : 0);
-            PyInterpreterConfig.allow_fork(nativeConfig, config.allowFork() ? 1 : 0);
-            PyInterpreterConfig.allow_exec(nativeConfig, config.allowExec() ? 1 : 0);
-            PyInterpreterConfig.allow_threads(nativeConfig, config.allowThreads() ? 1 : 0);
-            PyInterpreterConfig.allow_daemon_threads(nativeConfig, config.allowDaemonThreads() ? 1 : 0);
-            PyInterpreterConfig.check_multi_interp_extensions(nativeConfig, config.checkMultiInterpExtensions() ? 1 : 0);
-            PyInterpreterConfig.gil(nativeConfig, switch (config.gil()) {
-                case SHARED -> PyInterpreterConfig_SHARED_GIL();
-                case OWN -> PyInterpreterConfig_OWN_GIL();
-            });
-
-            MemorySegment newState = arena.allocate(ADDRESS);
-            MemorySegment status = Py_NewInterpreterFromConfig(arena, newState, nativeConfig);
-            if (PyStatus_Exception(status) != 0) {
-                MemorySegment message = PyStatus.err_msg(status);
-                throw new PythonException("Py_NewInterpreterFromConfig failed: "
-                        + (message.equals(MemorySegment.NULL) ? "unknown error" : message.getString(0)));
-            }
-            return newState.get(ADDRESS, 0);
-        });
+        // Already validated by InterpreterConfig: CPython 3.12 must never get to
+        // reject a configuration (its error path loses the GIL).
+        return newSubInterpreter(config, () -> Py312.newInterpreterFromConfig(config));
     }
 
     /**
@@ -285,7 +249,7 @@ public final class EmbeddedPython implements AutoCloseable {
      * @param create calls into CPython to create the sub-interpreter, returning its
      *     thread state, which CPython has made current
      */
-    private SubInterpreter newSubInterpreter(InterpreterConfig config, Function<Arena, MemorySegment> create) {
+    private SubInterpreter newSubInterpreter(InterpreterConfig config, Supplier<PyThreadState> create) {
         SubInterpreter.checkPlatformThread();
         synchronized (lifecycle) {
             if (closed) {
@@ -293,32 +257,32 @@ public final class EmbeddedPython implements AutoCloseable {
             }
             // Creating a sub-interpreter requires a current thread state. Reuses the
             // owner's thread state when called from the owner thread.
-            int gilState = PyGILState_Ensure();
-            try (Arena arena = Arena.ofConfined()) {
-                MemorySegment mainState = PyThreadState_Get();
+            GilState gilState = Py.gilStateEnsure();
+            try {
+                PyThreadState mainState = Py.threadStateGet();
                 // On failure, CPython restores mainState as the current thread state.
-                MemorySegment subState = create.apply(arena);
+                PyThreadState subState = create.get();
                 // Both C functions document that the new thread state becomes the
                 // current one, holding its GIL (its own, in which case the main GIL
                 // was released; or the shared one). Check that before relying on it:
                 // detaching, and later ending, the wrong thread state would corrupt
-                // CPython. (MemorySegment.equals compares addresses, not sizes.)
-                MemorySegment current = PyThreadState_Get();
+                // CPython.
+                PyThreadState current = Py.threadStateGet();
                 if (subState.equals(mainState) || !subState.equals(current)) {
                     throw new IllegalStateException(String.format(
                             "Sub-interpreter creation returned thread state 0x%x, but 0x%x is current"
                                     + " (main: 0x%x); CPython's state is now undefined",
-                            subState.address(), current.address(), mainState.address()));
+                            subState.segment().address(), current.segment().address(), mainState.segment().address()));
                 }
                 // Detach it, then return to the main interpreter so that
                 // PyGILState_Release can undo PyGILState_Ensure.
-                PyEval_SaveThread();
-                PyEval_RestoreThread(mainState);
+                Py.evalSaveThread();
+                Py.evalRestoreThread(mainState);
                 SubInterpreter subInterpreter = new SubInterpreter(this, subState, config);
                 subInterpreters.add(subInterpreter);
                 return subInterpreter;
             } finally {
-                PyGILState_Release(gilState);
+                Py.gilStateRelease(gilState);
             }
         }
     }
@@ -345,7 +309,7 @@ public final class EmbeddedPython implements AutoCloseable {
                 throw new IllegalStateException(subInterpreters.size() + " sub-interpreter(s) still open");
             }
             closed = true;
-            PyEval_RestoreThread(threadState);
+            Py.evalRestoreThread(threadState);
             if (Py_FinalizeEx() < 0) {
                 throw new PythonException("Py_FinalizeEx failed to flush buffered data");
             }

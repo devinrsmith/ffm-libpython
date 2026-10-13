@@ -51,6 +51,16 @@ class EmbeddedPythonTest {
             assertDoesNotThrow(() -> python.exec(MAIN_SURVIVES_ITS_REMOVAL));
             // ...and the next exec gets a fresh __main__.
             assertDoesNotThrow(() -> python.exec("assert 'module' not in globals()"));
+            // Every Py_IncRef of __main__ is paired with a Py_DecRef: its reference
+            // count is the same after 100 more execs.
+            python.exec("import sys; refcount_before = sys.getrefcount(sys.modules['__main__'])");
+            for (int i = 0; i < 100; i++) {
+                python.exec("pass");
+            }
+            assertDoesNotThrow(() -> python.exec("""
+                    refcount_after = sys.getrefcount(sys.modules['__main__'])
+                    assert refcount_after == refcount_before, (refcount_before, refcount_after)
+                    """));
             // C extension modules need libpython's symbols to be globally visible.
             assertDoesNotThrow(() -> python.exec("import math, json, ctypes, sqlite3"));
             assertThrows(PythonException.class, () -> python.exec("raise ValueError('expected')"));

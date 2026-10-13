@@ -1,10 +1,7 @@
 package com.example.ffm.python;
 
-import static com.example.ffm.python.capi.stable.CApi.PyEval_RestoreThread;
-import static com.example.ffm.python.capi.stable.CApi.PyEval_SaveThread;
-import static com.example.ffm.python.capi.stable.CApi.Py_EndInterpreter;
-
-import java.lang.foreign.MemorySegment;
+import com.example.ffm.python.internal.Py;
+import com.example.ffm.python.internal.PyThreadState;
 
 /**
  * A CPython sub-interpreter, created by {@link EmbeddedPython#newSubInterpreter()} or
@@ -23,11 +20,11 @@ public final class SubInterpreter implements AutoCloseable {
     private final EmbeddedPython parent;
     private final Thread owner;
     /** This interpreter's thread state, detached (its GIL released) between calls. */
-    private final MemorySegment threadState;
+    private final PyThreadState threadState;
     private final InterpreterConfig config;
     private boolean closed;
 
-    SubInterpreter(EmbeddedPython parent, MemorySegment threadState, InterpreterConfig config) {
+    SubInterpreter(EmbeddedPython parent, PyThreadState threadState, InterpreterConfig config) {
         this.parent = parent;
         this.owner = Thread.currentThread();
         this.threadState = threadState;
@@ -46,11 +43,11 @@ public final class SubInterpreter implements AutoCloseable {
     /** Diagnostics about this sub-interpreter, from {@code PyInterpreterState_Get*()}. */
     public InterpreterInfo interpreterInfo() {
         checkUsable();
-        PyEval_RestoreThread(threadState);
+        Py.evalRestoreThread(threadState);
         try {
             return InterpreterInfo.current();
         } finally {
-            PyEval_SaveThread();
+            Py.evalSaveThread();
         }
     }
 
@@ -64,11 +61,11 @@ public final class SubInterpreter implements AutoCloseable {
     public void exec(String source) {
         checkUsable();
         // Takes this interpreter's GIL: its own, or the main one if shared.
-        PyEval_RestoreThread(threadState);
+        Py.evalRestoreThread(threadState);
         try {
             PythonCode.run(source);
         } finally {
-            PyEval_SaveThread();
+            Py.evalSaveThread();
         }
     }
 
@@ -80,9 +77,9 @@ public final class SubInterpreter implements AutoCloseable {
         }
         checkUsable();
         closed = true;
-        PyEval_RestoreThread(threadState);
+        Py.evalRestoreThread(threadState);
         // Requires its thread state to be current; leaves no current thread state.
-        Py_EndInterpreter(threadState);
+        Py.endInterpreter(threadState);
         parent.ended(this);
     }
 

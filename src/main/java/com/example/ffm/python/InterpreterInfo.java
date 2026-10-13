@@ -1,15 +1,11 @@
 package com.example.ffm.python;
 
-import static com.example.ffm.python.capi.py312.CPython312.PyInterpreterState_Main;
-import static com.example.ffm.python.capi.stable.CApi.PyDict_Size;
-import static com.example.ffm.python.capi.stable.CApi.PyInterpreterState_Get;
-import static com.example.ffm.python.capi.stable.CApi.PyInterpreterState_GetDict;
-import static com.example.ffm.python.capi.stable.CApi.PyInterpreterState_GetID;
-import static com.example.ffm.python.capi.stable.CApi.PyThreadState_Get;
-import static com.example.ffm.python.capi.stable.CApi.PyThreadState_GetID;
-import static com.example.ffm.python.capi.stable.CApi.PyThreadState_GetInterpreter;
-
-import java.lang.foreign.MemorySegment;
+import com.example.ffm.python.internal.Py;
+import com.example.ffm.python.internal.Py312;
+import com.example.ffm.python.internal.PyInterpreterState;
+import com.example.ffm.python.internal.PyObject;
+import com.example.ffm.python.internal.PyThreadState;
+import java.util.Optional;
 import java.util.OptionalLong;
 
 /**
@@ -44,31 +40,21 @@ public record InterpreterInfo(long id, boolean main, long stateAddress, long thr
      * the two calls.
      */
     static InterpreterInfo current() {
-        MemorySegment interpreter = PyInterpreterState_Get();
-        MemorySegment threadState = PyThreadState_Get();
+        PyInterpreterState interpreter = Py.interpreterStateGet();
+        PyThreadState threadState = Py.threadStateGet();
         // Sanity check: the attached thread state belongs to this interpreter.
-        if (!PyThreadState_GetInterpreter(threadState).equals(interpreter)) {
+        if (!Py.threadStateGetInterpreter(threadState).equals(interpreter)) {
             throw new IllegalStateException("Thread state does not belong to the current interpreter");
         }
-        // Borrowed from the interpreter (created on first use), or NULL without an
-        // exception set if CPython could not allocate it.
-        MemorySegment dict = PyInterpreterState_GetDict(interpreter);
-        OptionalLong dictSize = OptionalLong.empty();
-        if (!dict.equals(MemorySegment.NULL)) {
-            long size = PyDict_Size(dict);
-            // -1 means "not a dict", with a SystemError set: impossible for the
-            // interpreter dict, but never leave an exception pending for a later call.
-            if (size < 0) {
-                throw PythonCode.pythonError("PyDict_Size failed on the interpreter dict");
-            }
-            dictSize = OptionalLong.of(size);
-        }
+        // Borrowed from the interpreter (created on first use); empty only if CPython
+        // could not allocate it.
+        Optional<PyObject.Dict> dict = Py.interpreterStateGetDict(interpreter);
         return new InterpreterInfo(
-                PyInterpreterState_GetID(interpreter),
-                interpreter.equals(PyInterpreterState_Main()),
-                interpreter.address(),
-                PyThreadState_GetID(threadState),
-                dictSize);
+                Py.interpreterStateGetId(interpreter),
+                interpreter.equals(Py312.interpreterStateMain()),
+                interpreter.segment().address(),
+                Py.threadStateGetId(threadState),
+                dict.isPresent() ? OptionalLong.of(Py.dictSize(dict.get())) : OptionalLong.empty());
     }
 
     @Override

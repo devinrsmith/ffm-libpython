@@ -131,6 +131,11 @@ src/main/java/                    module com.example.ffm.python
     InterpreterConfig.java        PyInterpreterConfig, validated
     InterpreterInfo.java          PyInterpreterState_Get*() diagnostics, per interpreter
     PythonCode.java               runs source in the current interpreter
+  com/example/ffm/python/internal/  typed layer over the bindings (not exported)
+    PyObject.java                 sealed: Module, Dict, Code, Any records (borrowed)
+    NewReference.java             an owned reference: AutoCloseable, Py_DecRef on close
+    PyThreadState.java, PyInterpreterState.java, GilState.java
+    Py.java, Py312.java           typed wrappers for capi.stable / capi.py312
     LibPython.java                finds, loads and checks libpython at runtime
     PythonVersion.java            Py_Version / PY_VERSION_HEX, unpacked
     Main.java                     the demo
@@ -379,6 +384,41 @@ current one and isn't the main interpreter's. `exec` attaches the sub-interprete
 own GIL, running code never contends for the main GIL.
 
 ## Design notes
+
+- **A typed layer over the generated bindings.** Outside the `internal`
+  package, no code calls a CPython function that takes or returns an object,
+  thread state or interpreter state directly. It goes through `Py` (Stable ABI)
+  or `Py312` (3.12-specific), whose wrappers use records instead of raw
+  `MemorySegment`s:
+  - **Objects:** `PyObject` is a sealed interface over `PyObject.Module`,
+    `Dict`, `Code` and `Any`. A **bare record is a borrowed reference**: usable,
+    never released. A **`NewReference<T>` is an owned one**, released with
+    `Py_DecRef` exactly once on `close()`, and unusable after that. Each wrapper
+    returns whichever CPython documents for that function, so try-with-resources
+    enforces the decRefs, and `NewReference.incRef(borrowed)` makes an owned
+    reference from a borrowed one:
+
+    ```java
+    try (NewReference<PyObject.Module> main = NewReference.incRef(Py.importAddModule("__main__"))) {
+        PyObject.Dict globals = Py.moduleGetDict(main.get());  // borrowed from main
+        try (NewReference<PyObject.Code> code = Py.compileFile(source, "<string>")) {
+            Py.evalCode(code.get(), globals, globals).close();
+        }
+    }
+    ```
+  - **States:** thread states, interpreter states and the
+    `PyGILState_Ensure` token get records too (`PyThreadState`,
+    `PyInterpreterState`, `GilState`). They aren't refcounted, but a main
+    thread state can no longer be confused with a sub-interpreter's, or a GIL
+    token with any other `int`.
+  - **Errors:** records reject `NULL`. Wrappers turn CPython's "`NULL` plus an
+    exception" into a `PythonException`, after printing and clearing the
+    exception.
+  - **What isn't checked:** a record's type is what CPython's documentation
+    promises for that function; it isn't verified at runtime.
+  - **Tests:** a test runs `exec` 100 times and checks that `__main__`'s
+    reference count is unchanged. With releasing disabled, it fails with the
+    count going from 4 to 105.
 
 - **Native access is explicit.** FFM downcalls are restricted methods. The app
   runs as a named module with `--enable-native-access=com.example.ffm.python`,
