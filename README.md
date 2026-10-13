@@ -172,10 +172,19 @@ interpreters in the Gradle properties `jextract.python312` to
 `jextract.python315` (`python3.12` and so on by default, in
 `gradle.properties`). Each fails unless it gets that version, so no
 binding can be silently regenerated from other headers. To bind more of the C API, add lines to the right file.
-jextract skips a requested symbol it can't bind, so check the generated code
-afterwards. It's silent when the symbol isn't in the header view (absent, or
-hidden by `Py_LIMITED_API`), and it only warns, among many other warnings, when
-it can't represent the symbol's type.
+jextract skips a requested symbol it can't bind. It's silent when the symbol
+isn't in the header view (absent, or hidden by `Py_LIMITED_API`), and it only
+warns, among many other warnings, when it can't represent the symbol's type.
+So each task checks that every `--include-*` line in its symbols file produced a
+declaration in the generated code, and fails otherwise, before touching the
+committed bindings:
+
+```
+> jextract did not generate 2 requested symbol(s) from stable312.symbols:
+      --include-function PyMem_RawFree
+      --include-var PyUnicode_Type
+    Possible causes: not in the headers, hidden by Py_LIMITED_API=0x030C0000, or a type jextract cannot represent (look for "Skipping <name>" in its output above).
+```
 
 | Task | Symbols file | Generates | Headers |
 |---|---|---|---|

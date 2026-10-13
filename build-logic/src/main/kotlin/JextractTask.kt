@@ -1,4 +1,5 @@
 import org.gradle.api.DefaultTask
+import org.gradle.api.GradleException
 import org.gradle.api.file.Directory
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.FileSystemOperations
@@ -16,6 +17,7 @@ import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.UntrackedTask
 import org.gradle.process.ExecOperations
+import java.io.File
 import javax.inject.Inject
 
 /**
@@ -105,6 +107,20 @@ abstract class JextractTask : DefaultTask() {
             args(headers.get())
         }
 
+        // jextract skips requested symbols it cannot bind, silently if they are not
+        // in the header view: fail instead, before touching the checked-in bindings.
+        val symbols = symbolsFile.get().asFile
+        val missing = missingSymbols(symbols, stagingDir)
+        if (missing.isNotEmpty()) {
+            throw GradleException(
+                "jextract did not generate ${missing.size} requested symbol(s) from ${symbols.name}:\n" +
+                    missing.joinToString("\n") { "    $it" } + "\n" +
+                    "  Possible causes: not in the headers" +
+                    defines.get().filter { it.startsWith("Py_LIMITED_API") }.joinToString("") { ", hidden by $it" } +
+                    ", or a type jextract cannot represent (look for \"Skipping <name>\" in its output above)."
+            )
+        }
+
         // Sync rather than copy, so bindings for removed symbols disappear too.
         val packagePath = targetPackage.get().replace('.', '/')
         fileSystemOperations.sync {
@@ -112,4 +128,32 @@ abstract class JextractTask : DefaultTask() {
             into(packageDirectory)
         }
     }
+}
+
+private val INCLUDE = Regex("""^--include-(function|var|constant|struct|union|typedef)\s+(\S+)""")
+
+/**
+ * The `--include-*` lines of [symbolsFile] that produced no declaration in the
+ * Java sources under [outputDir]: a `public static ... name(` method for a
+ * function, variable or constant; a class `name` for a struct or union; either for
+ * a typedef (a class for a struct typedef, a `static final ... name` layout for a
+ * primitive one).
+ */
+internal fun missingSymbols(symbolsFile: File, outputDir: File): List<String> {
+    val sources = outputDir.walk().filter { it.isFile && it.extension == "java" }.toList()
+    val text = sources.joinToString("\n") { it.readText() }
+    val classes = sources.map { it.nameWithoutExtension }.toSet()
+    return symbolsFile.readLines()
+        .mapNotNull { INCLUDE.find(it.trim()) } // skips comments and blank lines
+        .filterNot { match ->
+            val (kind, name) = match.destructured
+            val method = Regex("""public static [^;{=]*\b${Regex.escape(name)}\(""")
+            when (kind) {
+                "function", "var", "constant" -> method.containsMatchIn(text)
+                "struct", "union" -> name in classes
+                else -> name in classes ||
+                    Regex("""static final [^;=]*\b${Regex.escape(name)}\b""").containsMatchIn(text)
+            }
+        }
+        .map { it.value }
 }

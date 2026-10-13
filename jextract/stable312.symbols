@@ -9,7 +9,7 @@
 #       --dump-includes all.symbols '<Python.h>'
 #
 # Symbols outside that view (e.g. PyMem_RawFree, Limited API only from 3.13) are
-# skipped silently, so check the generated code after adding lines here.
+# skipped silently by jextract; the jextract task then fails, listing them.
 #
 # Function-like macros are not extracted: e.g. Py_DECREF(o) is a macro, so bind
 # the function Py_DecRef instead.
