@@ -3,11 +3,8 @@ package com.example.ffm.python.internal;
 import static com.example.ffm.python.capi.stable312.Stable312.PyDict_Size;
 import static com.example.ffm.python.capi.stable312.Stable312.PyList_GetItem;
 import static com.example.ffm.python.capi.stable312.Stable312.PyList_Size;
-import static com.example.ffm.python.capi.stable312.Stable312.PyObject_Type;
 import static com.example.ffm.python.capi.stable312.Stable312.PyType_GetFlags;
 import static com.example.ffm.python.capi.stable312.Stable312.PyUnicode_AsUTF8AndSize;
-import static com.example.ffm.python.capi.stable312.Stable312.Py_TPFLAGS_LIST_SUBCLASS;
-import static com.example.ffm.python.capi.stable312.Stable312.Py_TPFLAGS_UNICODE_SUBCLASS;
 import static com.example.ffm.python.capi.stable312.Stable312.PyEval_EvalCode;
 import static com.example.ffm.python.capi.stable312.Stable312.PyImport_AddModule;
 import static com.example.ffm.python.capi.stable312.Stable312.PyModule_GetDict;
@@ -20,6 +17,7 @@ import static java.lang.foreign.ValueLayout.JAVA_LONG;
 import com.example.ffm.python.PythonException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SymbolLookup;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
@@ -42,17 +40,22 @@ import java.util.Optional;
  * each function; they are not checked at runtime.
  */
 public sealed interface PyObject
-        permits PyObject.Any, PyObject.Code, PyObject.Dict, PyObject.List, PyObject.Module, PyObject.Str {
+        permits PyObject.Any, PyObject.Code, PyObject.Dict, PyObject.List, PyObject.Module, PyObject.Str, PyObject.Type {
 
     /** The object's address; never {@code NULL}. */
     MemorySegment segment();
 
-    /** {@code PyType_GetFlags} of the object's type ({@code Py_TPFLAGS_*}). */
-    default long typeFlags() {
-        // PyObject_Type returns a new reference to the type.
-        try (NewReference<Any> type = NewReference.adopt(new Any(PyObject_Type(segment())))) {
-            return PyType_GetFlags(type.get().segment());
-        }
+    /** {@code Py_TYPE}: the object's type, <b>borrowed</b> from the object. */
+    default Type type() {
+        return HeaderInlines.pyType(this);
+    }
+
+    /**
+     * {@code Py_IS_TYPE}: whether the object's type is exactly {@code type}; not a
+     * subclass of it (as C's {@code Py*_CheckExact} macros).
+     */
+    default boolean isType(Type type) {
+        return HeaderInlines.pyIsType(this, type);
     }
 
     /** An object of no particular type, e.g. the result of running code. */
@@ -62,16 +65,16 @@ public sealed interface PyObject
         }
 
         /**
-         * This object as a {@code str}, if it is one (or a subclass): the same
-         * object, so a reference with the same ownership as this one.
+         * This object as a {@code str}, if it is exactly one ({@code PyUnicode_CheckExact}):
+         * the same object, so a reference with the same ownership as this one.
          */
         public Optional<Str> asStr() {
-            return (typeFlags() & Py_TPFLAGS_UNICODE_SUBCLASS()) != 0 ? Optional.of(new Str(segment)) : Optional.empty();
+            return isType(Type.unicode()) ? Optional.of(new Str(segment)) : Optional.empty();
         }
 
-        /** This object as a {@code list}, if it is one (or a subclass); see {@link #asStr()}. */
+        /** This object as a {@code list}, if it is exactly one; see {@link #asStr()}. */
         public Optional<List> asList() {
-            return (typeFlags() & Py_TPFLAGS_LIST_SUBCLASS()) != 0 ? Optional.of(new List(segment)) : Optional.empty();
+            return isType(Type.list()) ? Optional.of(new List(segment)) : Optional.empty();
         }
     }
 
@@ -233,6 +236,60 @@ public sealed interface PyObject
         /** {@code PyModule_GetDict}: the module's namespace. <b>Borrowed</b> from the module. */
         public Dict dict() {
             return new Dict(PyModule_GetDict(segment));
+        }
+    }
+
+    /**
+     * A type object ({@code PyTypeObject *}). Its layout is opaque in the Limited
+     * API; only its address is used.
+     */
+    record Type(MemorySegment segment) implements PyObject {
+        public Type {
+            requireObject(segment);
+        }
+
+        /** {@code &PyUnicode_Type}: {@code str}. */
+        public static Type unicode() {
+            return Builtins.UNICODE;
+        }
+
+        /** {@code &PyList_Type}: {@code list}. */
+        public static Type list() {
+            return Builtins.LIST;
+        }
+
+        /** {@code &PyDict_Type}: {@code dict}. */
+        public static Type dict() {
+            return Builtins.DICT;
+        }
+
+        /** {@code &PyModule_Type}: {@code module}. */
+        public static Type module() {
+            return Builtins.MODULE;
+        }
+
+        /**
+         * {@code PyType_GetFlags}: the type's {@code Py_TPFLAGS_*}, e.g. for checks
+         * that also accept subclasses (as C's {@code Py*_Check} macros).
+         */
+        public long flags() {
+            return PyType_GetFlags(segment);
+        }
+
+        /**
+         * Built-in types: statically allocated, exported data symbols in every
+         * version. jextract cannot bind them as variables (their type is opaque in
+         * the Limited API), so their addresses are looked up, once, on first use.
+         */
+        private static final class Builtins {
+            static final Type UNICODE = lookUp("PyUnicode_Type");
+            static final Type LIST = lookUp("PyList_Type");
+            static final Type DICT = lookUp("PyDict_Type");
+            static final Type MODULE = lookUp("PyModule_Type");
+
+            private static Type lookUp(String symbol) {
+                return new Type(SymbolLookup.loaderLookup().findOrThrow(symbol));
+            }
         }
     }
 

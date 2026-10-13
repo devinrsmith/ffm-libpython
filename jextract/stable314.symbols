@@ -1,0 +1,9 @@
+# jextract argument file: what the Stable ABI added at the 3.14 level, that this
+# project uses. Generates com.example.ffm.python.capi.stable314 (task
+# jextractStable314) from the 3.14 headers with Py_LIMITED_API=0x030E0000.
+#
+# Py_TYPE was a static inline function in the headers before 3.14, so older
+# libpythons do not export it. Only call it after checking the loaded libpython's
+# Py_Version; earlier versions use the fallback in internal.HeaderInlines.
+
+--include-function Py_TYPE

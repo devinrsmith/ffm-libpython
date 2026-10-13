@@ -121,12 +121,15 @@ flake.nix                         Nix dev shell (JDK 25, jextract, Python 3.12, 
 gradle/libs.versions.toml         version catalog
 jextract/stable312.symbols        C symbols to bind from the Stable ABI (3.12 level)
 jextract/stable313.symbols        ...the Stable ABI's 3.13 additions
+jextract/stable314.symbols        ...3.14 additions (Py_TYPE)
+jextract/stable315.symbols        ...3.15 additions (Py_IS_TYPE)
 jextract/cpython314.symbols       ...and from CPython 3.14's version-specific API
 jextract/dlfcn.symbols            C symbols to bind from <dlfcn.h> (libc, not Python)
 jextract/cpython312.symbols       ...and from CPython 3.12's version-specific API
 src/main/jextract/                generated bindings (committed, do not edit)
   .../capi/stable312/               Stable312: Stable ABI at the 3.12 level
   .../capi/stable313/               Stable313: what the Stable ABI added in 3.13
+  .../capi/stable314/, stable315/   Stable314, Stable315: ...in 3.14 and 3.15
   .../capi/py312/                   CPython312: sub-interpreter creation, PyInterpreterState_Main
   .../capi/py314/                   CPython314: PyConfig_Get
   .../dlfcn/                        Dlfcn: dlopen, dlerror, RTLD_*
@@ -145,6 +148,7 @@ src/main/java/                    module com.example.ffm.python
     Configuration.java            the configuration diagnostics, switching source by version
     Py.java                       shared plumbing: incRef / decRef, error reporting
     ApiLevel.java                 the loaded libpython's version, for runtime dispatch
+    HeaderInlines.java            header inlines later exported, with their fallbacks
     LibPython.java                finds, loads and checks libpython at runtime
     PythonVersion.java            Py_Version / PY_VERSION_HEX, unpacked
     Main.java                     the demo
@@ -161,12 +165,12 @@ bindings can be reviewed in diffs. To regenerate them:
 ./gradlew jextract
 ```
 
-`./gradlew jextract` runs five tasks. Each generates only the symbols listed
-in its jextract argument file, into its own package. The four Python ones each
+`./gradlew jextract` runs seven tasks. Each generates only the symbols listed
+in its jextract argument file, into its own package. The six Python ones each
 use the headers of exactly the Python version in their name, from the
-interpreters in the Gradle properties `jextract.python312`,
-`jextract.python313` and `jextract.python314` (`python3.12` and so on by
-default, in `gradle.properties`). Each fails unless it gets that version, so no
+interpreters in the Gradle properties `jextract.python312` to
+`jextract.python315` (`python3.12` and so on by default, in
+`gradle.properties`). Each fails unless it gets that version, so no
 binding can be silently regenerated from other headers. To bind more of the C API, add lines to the right file.
 jextract silently skips symbols it can't find, so check the generated code
 afterwards.
@@ -175,6 +179,8 @@ afterwards.
 |---|---|---|---|
 | `jextractStable312` | `stable312.symbols` | `capi.stable312.Stable312` | 3.12, `Py_LIMITED_API=0x030C0000` |
 | `jextractStable313` | `stable313.symbols` | `capi.stable313.Stable313` | 3.13, `Py_LIMITED_API=0x030D0000` |
+| `jextractStable314` | `stable314.symbols` | `capi.stable314.Stable314` | 3.14, `Py_LIMITED_API=0x030E0000` |
+| `jextractStable315` | `stable315.symbols` | `capi.stable315.Stable315` | 3.15, `Py_LIMITED_API=0x030F0000` |
 | `jextractCPython312` | `cpython312.symbols` | `capi.py312.CPython312` | 3.12, full API |
 | `jextractCPython314` | `cpython314.symbols` | `capi.py314.CPython314` | 3.14, full API |
 | `jextractDlfcn` | `dlfcn.symbols` | `dlfcn.Dlfcn` | the C library's `<dlfcn.h>` |
@@ -451,11 +457,43 @@ results are read through typed `PyObject.Str` and `PyObject.List` records. The
 two sources disagree on what two keys mean, which is documented there and
 asserted per version.
 
+### Header inlines that were later stabilized
+
+Some of CPython's API is `static inline` code in the headers, which C callers
+compile into their own code but which isn't an exported function, so FFM can't
+call it. CPython has been turning some of these into real exported functions in
+the Stable ABI, for code that can't inline them:
+
+| Function | Header inline only | Exported since | Binding | Fallback before that |
+|---|---|---|---|---|
+| `Py_TYPE(o)` | 3.12–3.13 | 3.14 | `capi.stable314` | `PyObject_Type(o)` + `Py_DecRef`: the same type, as a borrowed reference that the object keeps alive |
+| `Py_IS_TYPE(o, t)` | 3.12–3.14 | 3.15 | `capi.stable315` | `Py_TYPE(o) == t`, the inline's own body |
+
+`internal.HeaderInlines` holds one method per row. Each calls the exported
+function where the loaded libpython has it, and the fallback before that.
+`PyObject.type()` and `PyObject.isType(Type)` use them. A probe showed each
+version taking exactly the path in the table, and a test checks that each
+exported function agrees with its fallback on the versions where both exist.
+
+The fallbacks deliberately avoid what the inlines themselves do, reading
+`ob->ob_type`. That would tie the bindings to the `PyObject` struct layout,
+which is what CPython made these functions to move away from (for
+free-threading).
+
+**Types.** `PyObject.Type` wraps a type object. `Type.unicode()`, `list()`,
+`dict()` and `module()` are the built-in types, exported data symbols in every
+version. jextract can't bind them as variables, since their type is opaque in
+the Limited API, and it skips them without a warning. So their addresses come
+from a symbol lookup. `Type.flags()` is `PyType_GetFlags`. `Any.asStr()` and
+`asList()` are exact type checks, as C's `PyUnicode_CheckExact` and
+`PyList_CheckExact` (subclasses don't match). For a subclass-aware check, as
+`PyUnicode_Check`, use the type's flags.
+
 **This relies on lazy symbol lookup.** A 3.12 libpython doesn't export
 `PyImport_AddModuleRef`, but jextract's generated code looks each function up
 only on its first call, so the binding is harmless until called. So every call
-into `capi.stable313` or `capi.py314` (or any future newer-level binding) must
-sit behind an `ApiLevel` check.
+into `capi.stable313`, `capi.stable314`, `capi.stable315` or `capi.py314` (or
+any future newer-level binding) must sit behind an `ApiLevel` check.
 
 **Borrowed or new.** A wrapper returns a borrowed reference (a bare record)
 only when it's borrowed from something the caller already holds and Python

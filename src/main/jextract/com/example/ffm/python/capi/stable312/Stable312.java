@@ -2439,23 +2439,5 @@ public class Stable312 extends Stable312$shared {
            throw new AssertionError("should not reach here", ex$);
         }
     }
-    private static final long Py_TPFLAGS_LIST_SUBCLASS = 33554432L;
-    /**
-     * {@snippet lang=c :
-     * #define Py_TPFLAGS_LIST_SUBCLASS 33554432
-     * }
-     */
-    public static long Py_TPFLAGS_LIST_SUBCLASS() {
-        return Py_TPFLAGS_LIST_SUBCLASS;
-    }
-    private static final long Py_TPFLAGS_UNICODE_SUBCLASS = 268435456L;
-    /**
-     * {@snippet lang=c :
-     * #define Py_TPFLAGS_UNICODE_SUBCLASS 268435456
-     * }
-     */
-    public static long Py_TPFLAGS_UNICODE_SUBCLASS() {
-        return Py_TPFLAGS_UNICODE_SUBCLASS;
-    }
 }
 

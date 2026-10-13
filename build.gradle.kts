@@ -96,6 +96,22 @@ tasks.register<JextractTask>("jextractDlfcn") {
     headerClassName = "Dlfcn"
 }
 
+// Header inlines that the Stable ABI later turned into exported functions:
+// Py_TYPE at the 3.14 level, Py_IS_TYPE at 3.15. Only callable when Py_Version
+// is at least that; earlier, internal.HeaderInlines reproduces them (see README).
+for ((version, limitedApi) in listOf("3.14" to "0x030E0000", "3.15" to "0x030F0000")) {
+    val level = version.replace(".", "")
+    tasks.register<JextractTask>("jextractStable$level") {
+        description = "Generates the Stable ABI bindings added at the $version level (capi.stable$level)."
+        headers = listOf("<Python.h>")
+        defines.add("Py_LIMITED_API=$limitedApi")
+        symbolsFile = layout.projectDirectory.file("jextract/stable$level.symbols")
+        targetPackage = "com.example.ffm.python.capi.stable$level"
+        headerClassName = "Stable$level"
+        includeDirs.add(pythonIncludeDir(version))
+    }
+}
+
 // CPython's version-specific API, for what the Stable ABI lacks, as declared
 // by the 3.12 headers. Kept to a minimum, and only symbols whose declarations
 // and layouts are unchanged in every supported version (see README).
