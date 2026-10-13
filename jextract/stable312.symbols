@@ -60,9 +60,10 @@
 --include-function PyDict_Size
 
 # Reading str and list objects (e.g. PyConfig_Get's results).
-# (Type objects themselves, e.g. PyUnicode_Type, are exported data whose type is
-# opaque in the Limited API, so jextract cannot bind them: PyObject.Type looks
-# their addresses up instead.)
+# (Type objects themselves, e.g. PyUnicode_Type, are Stable ABI data whose type
+# is incomplete in the Limited API; jextract skips them with a warning
+# ("type Declared(_typeobject) is not supported"), so PyObject.Type looks their
+# addresses up instead.)
 --include-function PyObject_Type
 --include-function PyType_GetFlags
 --include-function PyUnicode_AsUTF8AndSize

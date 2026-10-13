@@ -172,8 +172,10 @@ interpreters in the Gradle properties `jextract.python312` to
 `jextract.python315` (`python3.12` and so on by default, in
 `gradle.properties`). Each fails unless it gets that version, so no
 binding can be silently regenerated from other headers. To bind more of the C API, add lines to the right file.
-jextract silently skips symbols it can't find, so check the generated code
-afterwards.
+jextract skips a requested symbol it can't bind, so check the generated code
+afterwards. It's silent when the symbol isn't in the header view (absent, or
+hidden by `Py_LIMITED_API`), and it only warns, among many other warnings, when
+it can't represent the symbol's type.
 
 | Task | Symbols file | Generates | Headers |
 |---|---|---|---|
@@ -481,10 +483,15 @@ which is what CPython made these functions to move away from (for
 free-threading).
 
 **Types.** `PyObject.Type` wraps a type object. `Type.unicode()`, `list()`,
-`dict()` and `module()` are the built-in types, exported data symbols in every
-version. jextract can't bind them as variables, since their type is opaque in
-the Limited API, and it skips them without a warning. So their addresses come
-from a symbol lookup. `Type.flags()` is `PyType_GetFlags`. `Any.asStr()` and
+`dict()` and `module()` are the built-in types (`PyUnicode_Type` and so on).
+They've been part of the Stable ABI as *data* since 3.2, and every supported
+version exports them. The Stable ABI covers their addresses, not their
+contents: under `Py_LIMITED_API`, `PyTypeObject` is an incomplete struct, so
+Limited-API C code can only take `&PyUnicode_Type`. For the same reason,
+jextract skips them, with a warning that's easy to miss among its many others:
+`Skipping PyUnicode_Type (type Declared(_typeobject) is not supported)`. So
+their addresses come from a symbol lookup, which yields exactly
+`&PyUnicode_Type`, without binding the version-specific `PyTypeObject` layout. `Type.flags()` is `PyType_GetFlags`. `Any.asStr()` and
 `asList()` are exact type checks, as C's `PyUnicode_CheckExact` and
 `PyList_CheckExact` (subclasses don't match). For a subclass-aware check, as
 `PyUnicode_Check`, use the type's flags.

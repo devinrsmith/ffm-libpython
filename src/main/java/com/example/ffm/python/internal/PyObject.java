@@ -277,9 +277,18 @@ public sealed interface PyObject
         }
 
         /**
-         * Built-in types: statically allocated, exported data symbols in every
-         * version. jextract cannot bind them as variables (their type is opaque in
-         * the Limited API), so their addresses are looked up, once, on first use.
+         * Built-in types: statically allocated objects, in the Stable ABI as data
+         * since 3.2 ({@code PyAPI_DATA(PyTypeObject) PyUnicode_Type;} etc.) and
+         * exported by every supported version.
+         *
+         * <p>The Stable ABI covers their addresses, not their contents: under
+         * {@code Py_LIMITED_API}, {@code PyTypeObject} is an incomplete struct, so
+         * Limited-API C code can only take {@code &PyUnicode_Type}. For the same
+         * reason jextract skips them ("type Declared(_typeobject) is not
+         * supported"). A symbol lookup gives exactly that address, without binding
+         * the version-specific {@code PyTypeObject} layout. Looked up once, on first
+         * use. Static built-in types are shared by all interpreters, so the
+         * addresses hold in sub-interpreters too.
          */
         private static final class Builtins {
             static final Type UNICODE = lookUp("PyUnicode_Type");
