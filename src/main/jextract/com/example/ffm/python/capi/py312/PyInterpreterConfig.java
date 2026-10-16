@@ -39,7 +39,7 @@ public class PyInterpreterConfig {
         CPython312.C_INT.withName("allow_daemon_threads"),
         CPython312.C_INT.withName("check_multi_interp_extensions"),
         CPython312.C_INT.withName("gil")
-    ).withName("PyInterpreterConfig");
+    ).withName("$anon$72:9");
 
     /**
      * The layout of this struct

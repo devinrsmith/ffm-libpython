@@ -7,14 +7,15 @@
 # nothing here is covered by CPython's ABI promises. Only add symbols whose
 # declarations and struct layouts are unchanged in every supported version;
 # verified so far for 3.12, 3.13, 3.14 and 3.15. PyInterpreterConfig and PyStatus
-# are identical across them.
+# are identical across them. Both are `typedef struct { ... } Name;`, which jextract
+# (LLVM 13) lists as --include-typedef; jextract built on a newer LLVM says struct.
 
 # Sub-interpreters with their own GIL (3.12+).
 --include-function Py_NewInterpreterFromConfig
---include-struct PyInterpreterConfig
+--include-typedef PyInterpreterConfig
 --include-constant PyInterpreterConfig_SHARED_GIL
 --include-constant PyInterpreterConfig_OWN_GIL
---include-struct PyStatus
+--include-typedef PyStatus
 --include-function PyStatus_Exception
 
 # Interpreter diagnostics: which interpreter is the main one (unchanged 3.12-3.15).

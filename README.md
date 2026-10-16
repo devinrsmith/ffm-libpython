@@ -111,7 +111,15 @@ ever needed, is PEP 741's string-keyed `PyInitConfig` API (3.14+).
 ### With Nix
 
 `flake.nix` provides a dev shell (Linux) with JDK 25, jextract, and Python
-3.12 to 3.15. Python 3.12 is the shell's `python3`. The others are on the
+3.12 to 3.15. jextract is the official build from
+[jdk.java.net](https://jdk.java.net/jextract/) (25+2-4), not nixpkgs' (built
+from source against nixpkgs' LLVM). jextract supports only LLVM 13, which the
+official build bundles
+([jextract-dev](https://mail.openjdk.org/archives/list/jextract-dev@openjdk.org/thread/75C3C7H5OJF5KNCU5VPBEHSVX465L7F6/)).
+nixpkgs no longer has LLVM 13, and newer LLVMs both crash jextract (21 and
+later, see [The bindings](#the-bindings)) and change its output for
+anonymous records. `autoPatchelfHook` makes the tarball's JVM and libclang
+run under Nix; `nix build .#jextract` builds it alone. Python 3.12 is the shell's `python3`. The others are on the
 `PATH` as `python3.13`, `python3.14` and `python3.15`, and also supply the
 headers that `./gradlew jextract` needs.
 
@@ -532,15 +540,28 @@ directories, separated by `:`:
 ./gradlew jextract -Pjextract.includeDirs=/path/to/libc/include
 ```
 
-**jextract occasionally crashes.** jextract (from nixpkgs, jextract 23 on
-libclang 21) sometimes dies with a SIGSEGV inside libclang and leaves an
-`hs_err_pid*.log`. Normal generation crashed in about 1 in 15 to 2 in 50 runs
-while I developed this. `--dump-includes` on the whole `Python.h` crashed in
-most runs, sometimes several in a row. Rerunning eventually works. I didn't find
-the cause: neither a larger thread stack (`JEXTRACT_JAVA_OPTIONS=-Xss16m`) nor
-`LIBCLANG_DISABLE_CRASH_RECOVERY=1` helped. The task writes into a staging
-directory and syncs into `src/main/jextract` only on success, so a crash never
-damages the committed bindings.
+**Use a jextract built on LLVM 13.** jextract supports only LLVM 13
+([jextract-dev](https://mail.openjdk.org/archives/list/jextract-dev@openjdk.org/thread/75C3C7H5OJF5KNCU5VPBEHSVX465L7F6/)),
+which the official build bundles. Distro packages built against a newer
+libclang (nixpkgs' included) differ in two ways:
+
+- **Different output.** Typedefs of anonymous structs such as `PyStatus` are
+  reported as structs, so `cpython312.symbols`' `--include-typedef` lines
+  generate nothing and the task fails. Anonymous records also get synthetic
+  names, some containing header paths.
+- **Intermittent crashes from LLVM 21.** From LLVM 18 (14 to 17 untested),
+  libclang installs LLVM's own `SIGSEGV` handler over the JVM's. The JVM
+  raises `SIGSEGV` on purpose, for example for implicit null checks in
+  JIT-compiled code. From LLVM 21, LLVM's handler re-raises those faults from
+  libc (`rt_tgsigqueueinfo`), and the JVM reports a fatal crash: `SIGSEGV` in
+  `libc.so.6 syscall+0x1d`. It depends on JIT timing, so it's likeliest with
+  several jextracts at once, as `./gradlew jextract` runs them. Measured with
+  nixpkgs' jextract (LLVM 21), 15 of 20 runs of `--dump-includes` on
+  `Python.h` crashed. With the JVM's `libjsig.so` preloaded into jextract's
+  JVM, or with `JEXTRACT_JAVA_OPTIONS=-Xint`, none did.
+
+The task writes into a staging directory and syncs into `src/main/jextract`
+only on success, so a failed run never damages the committed bindings.
 
 ## Switching on the version at runtime
 

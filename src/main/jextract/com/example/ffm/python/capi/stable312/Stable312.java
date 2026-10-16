@@ -526,7 +526,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * PyInterpreterState *PyInterpreterState_Get(void)
+     * PyInterpreterState *PyInterpreterState_Get()
      * }
      */
     public static FunctionDescriptor PyInterpreterState_Get$descriptor() {
@@ -536,7 +536,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * PyInterpreterState *PyInterpreterState_Get(void)
+     * PyInterpreterState *PyInterpreterState_Get()
      * }
      */
     public static MethodHandle PyInterpreterState_Get$handle() {
@@ -546,7 +546,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Address for:
      * {@snippet lang=c :
-     * PyInterpreterState *PyInterpreterState_Get(void)
+     * PyInterpreterState *PyInterpreterState_Get()
      * }
      */
     public static MemorySegment PyInterpreterState_Get$address() {
@@ -555,7 +555,7 @@ public class Stable312 extends Stable312$shared {
 
     /**
      * {@snippet lang=c :
-     * PyInterpreterState *PyInterpreterState_Get(void)
+     * PyInterpreterState *PyInterpreterState_Get()
      * }
      */
     public static MemorySegment PyInterpreterState_Get() {
@@ -704,7 +704,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * PyThreadState *PyThreadState_Get(void)
+     * PyThreadState *PyThreadState_Get()
      * }
      */
     public static FunctionDescriptor PyThreadState_Get$descriptor() {
@@ -714,7 +714,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * PyThreadState *PyThreadState_Get(void)
+     * PyThreadState *PyThreadState_Get()
      * }
      */
     public static MethodHandle PyThreadState_Get$handle() {
@@ -724,7 +724,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Address for:
      * {@snippet lang=c :
-     * PyThreadState *PyThreadState_Get(void)
+     * PyThreadState *PyThreadState_Get()
      * }
      */
     public static MemorySegment PyThreadState_Get$address() {
@@ -733,7 +733,7 @@ public class Stable312 extends Stable312$shared {
 
     /**
      * {@snippet lang=c :
-     * PyThreadState *PyThreadState_Get(void)
+     * PyThreadState *PyThreadState_Get()
      * }
      */
     public static MemorySegment PyThreadState_Get() {
@@ -942,7 +942,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * PyGILState_STATE PyGILState_Ensure(void)
+     * PyGILState_STATE PyGILState_Ensure()
      * }
      */
     public static FunctionDescriptor PyGILState_Ensure$descriptor() {
@@ -952,7 +952,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * PyGILState_STATE PyGILState_Ensure(void)
+     * PyGILState_STATE PyGILState_Ensure()
      * }
      */
     public static MethodHandle PyGILState_Ensure$handle() {
@@ -962,7 +962,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Address for:
      * {@snippet lang=c :
-     * PyGILState_STATE PyGILState_Ensure(void)
+     * PyGILState_STATE PyGILState_Ensure()
      * }
      */
     public static MemorySegment PyGILState_Ensure$address() {
@@ -971,7 +971,7 @@ public class Stable312 extends Stable312$shared {
 
     /**
      * {@snippet lang=c :
-     * PyGILState_STATE PyGILState_Ensure(void)
+     * PyGILState_STATE PyGILState_Ensure()
      * }
      */
     public static int PyGILState_Ensure() {
@@ -1361,7 +1361,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * void PyErr_Print(void)
+     * void PyErr_Print()
      * }
      */
     public static FunctionDescriptor PyErr_Print$descriptor() {
@@ -1371,7 +1371,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * void PyErr_Print(void)
+     * void PyErr_Print()
      * }
      */
     public static MethodHandle PyErr_Print$handle() {
@@ -1381,7 +1381,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Address for:
      * {@snippet lang=c :
-     * void PyErr_Print(void)
+     * void PyErr_Print()
      * }
      */
     public static MemorySegment PyErr_Print$address() {
@@ -1390,7 +1390,7 @@ public class Stable312 extends Stable312$shared {
 
     /**
      * {@snippet lang=c :
-     * void PyErr_Print(void)
+     * void PyErr_Print()
      * }
      */
     public static void PyErr_Print() {
@@ -1478,7 +1478,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * int Py_FinalizeEx(void)
+     * int Py_FinalizeEx()
      * }
      */
     public static FunctionDescriptor Py_FinalizeEx$descriptor() {
@@ -1488,7 +1488,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * int Py_FinalizeEx(void)
+     * int Py_FinalizeEx()
      * }
      */
     public static MethodHandle Py_FinalizeEx$handle() {
@@ -1498,7 +1498,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Address for:
      * {@snippet lang=c :
-     * int Py_FinalizeEx(void)
+     * int Py_FinalizeEx()
      * }
      */
     public static MemorySegment Py_FinalizeEx$address() {
@@ -1507,7 +1507,7 @@ public class Stable312 extends Stable312$shared {
 
     /**
      * {@snippet lang=c :
-     * int Py_FinalizeEx(void)
+     * int Py_FinalizeEx()
      * }
      */
     public static int Py_FinalizeEx() {
@@ -1536,7 +1536,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * int Py_IsInitialized(void)
+     * int Py_IsInitialized()
      * }
      */
     public static FunctionDescriptor Py_IsInitialized$descriptor() {
@@ -1546,7 +1546,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * int Py_IsInitialized(void)
+     * int Py_IsInitialized()
      * }
      */
     public static MethodHandle Py_IsInitialized$handle() {
@@ -1556,7 +1556,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Address for:
      * {@snippet lang=c :
-     * int Py_IsInitialized(void)
+     * int Py_IsInitialized()
      * }
      */
     public static MemorySegment Py_IsInitialized$address() {
@@ -1565,7 +1565,7 @@ public class Stable312 extends Stable312$shared {
 
     /**
      * {@snippet lang=c :
-     * int Py_IsInitialized(void)
+     * int Py_IsInitialized()
      * }
      */
     public static int Py_IsInitialized() {
@@ -1594,7 +1594,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * PyThreadState *Py_NewInterpreter(void)
+     * PyThreadState *Py_NewInterpreter()
      * }
      */
     public static FunctionDescriptor Py_NewInterpreter$descriptor() {
@@ -1604,7 +1604,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * PyThreadState *Py_NewInterpreter(void)
+     * PyThreadState *Py_NewInterpreter()
      * }
      */
     public static MethodHandle Py_NewInterpreter$handle() {
@@ -1614,7 +1614,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Address for:
      * {@snippet lang=c :
-     * PyThreadState *Py_NewInterpreter(void)
+     * PyThreadState *Py_NewInterpreter()
      * }
      */
     public static MemorySegment Py_NewInterpreter$address() {
@@ -1623,7 +1623,7 @@ public class Stable312 extends Stable312$shared {
 
     /**
      * {@snippet lang=c :
-     * PyThreadState *Py_NewInterpreter(void)
+     * PyThreadState *Py_NewInterpreter()
      * }
      */
     public static MemorySegment Py_NewInterpreter() {
@@ -1770,7 +1770,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * wchar_t *Py_GetProgramName(void)
+     * wchar_t *Py_GetProgramName()
      * }
      */
     public static FunctionDescriptor Py_GetProgramName$descriptor() {
@@ -1780,7 +1780,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * wchar_t *Py_GetProgramName(void)
+     * wchar_t *Py_GetProgramName()
      * }
      */
     public static MethodHandle Py_GetProgramName$handle() {
@@ -1790,7 +1790,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Address for:
      * {@snippet lang=c :
-     * wchar_t *Py_GetProgramName(void)
+     * wchar_t *Py_GetProgramName()
      * }
      */
     public static MemorySegment Py_GetProgramName$address() {
@@ -1799,7 +1799,7 @@ public class Stable312 extends Stable312$shared {
 
     /**
      * {@snippet lang=c :
-     * wchar_t *Py_GetProgramName(void)
+     * wchar_t *Py_GetProgramName()
      * }
      */
     public static MemorySegment Py_GetProgramName() {
@@ -1828,7 +1828,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * wchar_t *Py_GetPythonHome(void)
+     * wchar_t *Py_GetPythonHome()
      * }
      */
     public static FunctionDescriptor Py_GetPythonHome$descriptor() {
@@ -1838,7 +1838,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * wchar_t *Py_GetPythonHome(void)
+     * wchar_t *Py_GetPythonHome()
      * }
      */
     public static MethodHandle Py_GetPythonHome$handle() {
@@ -1848,7 +1848,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Address for:
      * {@snippet lang=c :
-     * wchar_t *Py_GetPythonHome(void)
+     * wchar_t *Py_GetPythonHome()
      * }
      */
     public static MemorySegment Py_GetPythonHome$address() {
@@ -1857,7 +1857,7 @@ public class Stable312 extends Stable312$shared {
 
     /**
      * {@snippet lang=c :
-     * wchar_t *Py_GetPythonHome(void)
+     * wchar_t *Py_GetPythonHome()
      * }
      */
     public static MemorySegment Py_GetPythonHome() {
@@ -1886,7 +1886,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * wchar_t *Py_GetProgramFullPath(void)
+     * wchar_t *Py_GetProgramFullPath()
      * }
      */
     public static FunctionDescriptor Py_GetProgramFullPath$descriptor() {
@@ -1896,7 +1896,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * wchar_t *Py_GetProgramFullPath(void)
+     * wchar_t *Py_GetProgramFullPath()
      * }
      */
     public static MethodHandle Py_GetProgramFullPath$handle() {
@@ -1906,7 +1906,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Address for:
      * {@snippet lang=c :
-     * wchar_t *Py_GetProgramFullPath(void)
+     * wchar_t *Py_GetProgramFullPath()
      * }
      */
     public static MemorySegment Py_GetProgramFullPath$address() {
@@ -1915,7 +1915,7 @@ public class Stable312 extends Stable312$shared {
 
     /**
      * {@snippet lang=c :
-     * wchar_t *Py_GetProgramFullPath(void)
+     * wchar_t *Py_GetProgramFullPath()
      * }
      */
     public static MemorySegment Py_GetProgramFullPath() {
@@ -1944,7 +1944,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * wchar_t *Py_GetPrefix(void)
+     * wchar_t *Py_GetPrefix()
      * }
      */
     public static FunctionDescriptor Py_GetPrefix$descriptor() {
@@ -1954,7 +1954,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * wchar_t *Py_GetPrefix(void)
+     * wchar_t *Py_GetPrefix()
      * }
      */
     public static MethodHandle Py_GetPrefix$handle() {
@@ -1964,7 +1964,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Address for:
      * {@snippet lang=c :
-     * wchar_t *Py_GetPrefix(void)
+     * wchar_t *Py_GetPrefix()
      * }
      */
     public static MemorySegment Py_GetPrefix$address() {
@@ -1973,7 +1973,7 @@ public class Stable312 extends Stable312$shared {
 
     /**
      * {@snippet lang=c :
-     * wchar_t *Py_GetPrefix(void)
+     * wchar_t *Py_GetPrefix()
      * }
      */
     public static MemorySegment Py_GetPrefix() {
@@ -2002,7 +2002,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * wchar_t *Py_GetExecPrefix(void)
+     * wchar_t *Py_GetExecPrefix()
      * }
      */
     public static FunctionDescriptor Py_GetExecPrefix$descriptor() {
@@ -2012,7 +2012,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * wchar_t *Py_GetExecPrefix(void)
+     * wchar_t *Py_GetExecPrefix()
      * }
      */
     public static MethodHandle Py_GetExecPrefix$handle() {
@@ -2022,7 +2022,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Address for:
      * {@snippet lang=c :
-     * wchar_t *Py_GetExecPrefix(void)
+     * wchar_t *Py_GetExecPrefix()
      * }
      */
     public static MemorySegment Py_GetExecPrefix$address() {
@@ -2031,7 +2031,7 @@ public class Stable312 extends Stable312$shared {
 
     /**
      * {@snippet lang=c :
-     * wchar_t *Py_GetExecPrefix(void)
+     * wchar_t *Py_GetExecPrefix()
      * }
      */
     public static MemorySegment Py_GetExecPrefix() {
@@ -2060,7 +2060,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * wchar_t *Py_GetPath(void)
+     * wchar_t *Py_GetPath()
      * }
      */
     public static FunctionDescriptor Py_GetPath$descriptor() {
@@ -2070,7 +2070,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * wchar_t *Py_GetPath(void)
+     * wchar_t *Py_GetPath()
      * }
      */
     public static MethodHandle Py_GetPath$handle() {
@@ -2080,7 +2080,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Address for:
      * {@snippet lang=c :
-     * wchar_t *Py_GetPath(void)
+     * wchar_t *Py_GetPath()
      * }
      */
     public static MemorySegment Py_GetPath$address() {
@@ -2089,7 +2089,7 @@ public class Stable312 extends Stable312$shared {
 
     /**
      * {@snippet lang=c :
-     * wchar_t *Py_GetPath(void)
+     * wchar_t *Py_GetPath()
      * }
      */
     public static MemorySegment Py_GetPath() {
@@ -2118,7 +2118,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * const char *Py_GetVersion(void)
+     * const char *Py_GetVersion()
      * }
      */
     public static FunctionDescriptor Py_GetVersion$descriptor() {
@@ -2128,7 +2128,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * const char *Py_GetVersion(void)
+     * const char *Py_GetVersion()
      * }
      */
     public static MethodHandle Py_GetVersion$handle() {
@@ -2138,7 +2138,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Address for:
      * {@snippet lang=c :
-     * const char *Py_GetVersion(void)
+     * const char *Py_GetVersion()
      * }
      */
     public static MemorySegment Py_GetVersion$address() {
@@ -2147,7 +2147,7 @@ public class Stable312 extends Stable312$shared {
 
     /**
      * {@snippet lang=c :
-     * const char *Py_GetVersion(void)
+     * const char *Py_GetVersion()
      * }
      */
     public static MemorySegment Py_GetVersion() {
@@ -2176,7 +2176,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * const char *Py_GetPlatform(void)
+     * const char *Py_GetPlatform()
      * }
      */
     public static FunctionDescriptor Py_GetPlatform$descriptor() {
@@ -2186,7 +2186,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * const char *Py_GetPlatform(void)
+     * const char *Py_GetPlatform()
      * }
      */
     public static MethodHandle Py_GetPlatform$handle() {
@@ -2196,7 +2196,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Address for:
      * {@snippet lang=c :
-     * const char *Py_GetPlatform(void)
+     * const char *Py_GetPlatform()
      * }
      */
     public static MemorySegment Py_GetPlatform$address() {
@@ -2205,7 +2205,7 @@ public class Stable312 extends Stable312$shared {
 
     /**
      * {@snippet lang=c :
-     * const char *Py_GetPlatform(void)
+     * const char *Py_GetPlatform()
      * }
      */
     public static MemorySegment Py_GetPlatform() {
@@ -2234,7 +2234,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * const char *Py_GetCompiler(void)
+     * const char *Py_GetCompiler()
      * }
      */
     public static FunctionDescriptor Py_GetCompiler$descriptor() {
@@ -2244,7 +2244,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * const char *Py_GetCompiler(void)
+     * const char *Py_GetCompiler()
      * }
      */
     public static MethodHandle Py_GetCompiler$handle() {
@@ -2254,7 +2254,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Address for:
      * {@snippet lang=c :
-     * const char *Py_GetCompiler(void)
+     * const char *Py_GetCompiler()
      * }
      */
     public static MemorySegment Py_GetCompiler$address() {
@@ -2263,7 +2263,7 @@ public class Stable312 extends Stable312$shared {
 
     /**
      * {@snippet lang=c :
-     * const char *Py_GetCompiler(void)
+     * const char *Py_GetCompiler()
      * }
      */
     public static MemorySegment Py_GetCompiler() {
@@ -2292,7 +2292,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * const char *Py_GetBuildInfo(void)
+     * const char *Py_GetBuildInfo()
      * }
      */
     public static FunctionDescriptor Py_GetBuildInfo$descriptor() {
@@ -2302,7 +2302,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * const char *Py_GetBuildInfo(void)
+     * const char *Py_GetBuildInfo()
      * }
      */
     public static MethodHandle Py_GetBuildInfo$handle() {
@@ -2312,7 +2312,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Address for:
      * {@snippet lang=c :
-     * const char *Py_GetBuildInfo(void)
+     * const char *Py_GetBuildInfo()
      * }
      */
     public static MemorySegment Py_GetBuildInfo$address() {
@@ -2321,7 +2321,7 @@ public class Stable312 extends Stable312$shared {
 
     /**
      * {@snippet lang=c :
-     * const char *Py_GetBuildInfo(void)
+     * const char *Py_GetBuildInfo()
      * }
      */
     public static MemorySegment Py_GetBuildInfo() {
@@ -2457,7 +2457,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * PyThreadState *PyEval_SaveThread(void)
+     * PyThreadState *PyEval_SaveThread()
      * }
      */
     public static FunctionDescriptor PyEval_SaveThread$descriptor() {
@@ -2467,7 +2467,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * PyThreadState *PyEval_SaveThread(void)
+     * PyThreadState *PyEval_SaveThread()
      * }
      */
     public static MethodHandle PyEval_SaveThread$handle() {
@@ -2477,7 +2477,7 @@ public class Stable312 extends Stable312$shared {
     /**
      * Address for:
      * {@snippet lang=c :
-     * PyThreadState *PyEval_SaveThread(void)
+     * PyThreadState *PyEval_SaveThread()
      * }
      */
     public static MemorySegment PyEval_SaveThread$address() {
@@ -2486,7 +2486,7 @@ public class Stable312 extends Stable312$shared {
 
     /**
      * {@snippet lang=c :
-     * PyThreadState *PyEval_SaveThread(void)
+     * PyThreadState *PyEval_SaveThread()
      * }
      */
     public static MemorySegment PyEval_SaveThread() {

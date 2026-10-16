@@ -24,7 +24,8 @@ Work inside the Nix dev shell (`nix develop`). It provides JDK 25, jextract, `py
 - **Verify a change against the whole version matrix,** not just 3.12: run `test -Ppython.executable=python3.1X` for 12 to 15.
 - **Tests always embed a venv** (`build/test-venv`), created from `-Ppython.executable`.
 - **There's no separate lint step.** `javac` runs with `-Xlint:all,-restricted -Werror`, so warnings fail the build.
-- **jextract (nixpkgs build) intermittently segfaults inside libclang;** just rerun it. A failed or crashed run never touches the committed bindings. `--dump-includes` on the full `Python.h` crashes most of the time.
+- **jextract supports only LLVM 13.** The dev shell packages the official jdk.java.net build, which bundles it. Don't switch to a jextract built against a newer LLVM: it changes the output (`typedef struct { … } X` becomes `--include-struct` instead of `--include-typedef`, and synthetic names appear for anonymous records).
+- **jextract built on a newer LLVM (21+) also crashes intermittently**, especially several at once: LLVM's signal handler replaces the JVM's (see README, "Use a jextract built on LLVM 13"). If you must use one by hand, `JEXTRACT_JAVA_OPTIONS=-Xint jextract …` avoids it. A failed or crashed run never touches the committed bindings.
 
 ## Architecture
 

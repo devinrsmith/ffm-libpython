@@ -124,7 +124,7 @@ public class Dlfcn extends Dlfcn$shared {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * extern char *dlerror(void)
+     * extern char *dlerror()
      * }
      */
     public static FunctionDescriptor dlerror$descriptor() {
@@ -134,7 +134,7 @@ public class Dlfcn extends Dlfcn$shared {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * extern char *dlerror(void)
+     * extern char *dlerror()
      * }
      */
     public static MethodHandle dlerror$handle() {
@@ -144,7 +144,7 @@ public class Dlfcn extends Dlfcn$shared {
     /**
      * Address for:
      * {@snippet lang=c :
-     * extern char *dlerror(void)
+     * extern char *dlerror()
      * }
      */
     public static MemorySegment dlerror$address() {
@@ -153,7 +153,7 @@ public class Dlfcn extends Dlfcn$shared {
 
     /**
      * {@snippet lang=c :
-     * extern char *dlerror(void)
+     * extern char *dlerror()
      * }
      */
     public static MemorySegment dlerror() {

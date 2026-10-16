@@ -26,7 +26,7 @@ public class CPython312 extends CPython312$shared {
     private static final int _PyStatus_TYPE_OK = (int)0L;
     /**
      * {@snippet lang=c :
-     * enum enum (unnamed at /nix/store/v7wvwm1bpm6kzlqgw33m98arm7sw40ln-python3-3.12.15/include/python3.12/cpython/initconfig.h:11:5)._PyStatus_TYPE_OK = 0
+     * enum <anonymous>._PyStatus_TYPE_OK = 0
      * }
      */
     public static int _PyStatus_TYPE_OK() {
@@ -35,7 +35,7 @@ public class CPython312 extends CPython312$shared {
     private static final int _PyStatus_TYPE_ERROR = (int)1L;
     /**
      * {@snippet lang=c :
-     * enum enum (unnamed at /nix/store/v7wvwm1bpm6kzlqgw33m98arm7sw40ln-python3-3.12.15/include/python3.12/cpython/initconfig.h:11:5)._PyStatus_TYPE_ERROR = 1
+     * enum <anonymous>._PyStatus_TYPE_ERROR = 1
      * }
      */
     public static int _PyStatus_TYPE_ERROR() {
@@ -44,7 +44,7 @@ public class CPython312 extends CPython312$shared {
     private static final int _PyStatus_TYPE_EXIT = (int)2L;
     /**
      * {@snippet lang=c :
-     * enum enum (unnamed at /nix/store/v7wvwm1bpm6kzlqgw33m98arm7sw40ln-python3-3.12.15/include/python3.12/cpython/initconfig.h:11:5)._PyStatus_TYPE_EXIT = 2
+     * enum <anonymous>._PyStatus_TYPE_EXIT = 2
      * }
      */
     public static int _PyStatus_TYPE_EXIT() {
@@ -123,7 +123,7 @@ public class CPython312 extends CPython312$shared {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * PyInterpreterState *PyInterpreterState_Main(void)
+     * PyInterpreterState *PyInterpreterState_Main()
      * }
      */
     public static FunctionDescriptor PyInterpreterState_Main$descriptor() {
@@ -133,7 +133,7 @@ public class CPython312 extends CPython312$shared {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * PyInterpreterState *PyInterpreterState_Main(void)
+     * PyInterpreterState *PyInterpreterState_Main()
      * }
      */
     public static MethodHandle PyInterpreterState_Main$handle() {
@@ -143,7 +143,7 @@ public class CPython312 extends CPython312$shared {
     /**
      * Address for:
      * {@snippet lang=c :
-     * PyInterpreterState *PyInterpreterState_Main(void)
+     * PyInterpreterState *PyInterpreterState_Main()
      * }
      */
     public static MemorySegment PyInterpreterState_Main$address() {
@@ -152,7 +152,7 @@ public class CPython312 extends CPython312$shared {
 
     /**
      * {@snippet lang=c :
-     * PyInterpreterState *PyInterpreterState_Main(void)
+     * PyInterpreterState *PyInterpreterState_Main()
      * }
      */
     public static MemorySegment PyInterpreterState_Main() {

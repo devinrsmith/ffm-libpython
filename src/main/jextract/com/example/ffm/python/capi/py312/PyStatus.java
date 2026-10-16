@@ -39,7 +39,7 @@ public class PyStatus {
         CPython312.C_POINTER.withName("err_msg"),
         CPython312.C_INT.withName("exitcode"),
         MemoryLayout.paddingLayout(4)
-    ).withName("PyStatus");
+    ).withName("$anon$10:9");
 
     /**
      * The layout of this struct
